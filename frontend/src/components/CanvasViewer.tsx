@@ -18,10 +18,15 @@ export default function CanvasViewer({
   airportId,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [highlightPath, setHighlightPath] = useState<{
     path_names: string[];
     node_path: any[];
   } | null>(null);
+
+  // 🔹 NEW: camera state
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,19 +36,50 @@ export default function CanvasViewer({
     if (!ctx) return;
 
     draw(ctx);
-  }, [nodes, edges, pois, areas, highlightPath]);
+  }, [nodes, edges, pois, areas, highlightPath, scale, offset]);
 
   async function handleShowPath() {
     const data = await loadAllPaths(airportId);
-
     setHighlightPath(data);
   }
 
-  function orderNodes(nodeIds, nodes) {
+  // VIEW CONTROLS
+  function zoom(factor: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const newScale = Math.max(0.2, Math.min(scale * factor, 5));
+    const scaleRatio = newScale / scale;
+
+    setOffset({
+      x: cx - (cx - offset.x) * scaleRatio,
+      y: cy - (cy - offset.y) * scaleRatio,
+    });
+
+    setScale(newScale);
+  }
+
+  function zoomIn() {
+    zoom(1.2);
+  }
+
+  function zoomOut() {
+    zoom(1 / 1.2);
+  }
+
+  function resetView() {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }
+
+  function orderNodes(nodeIds: string[], nodes: Node[]) {
     const nodeMap = Object.fromEntries(nodes.map((n) => [n.id, n]));
     const remaining = new Set(nodeIds);
 
-    const ordered = [];
+    const ordered: string[] = [];
     let current = nodeIds[0];
 
     ordered.push(current);
@@ -52,7 +88,7 @@ export default function CanvasViewer({
     while (remaining.size > 0) {
       const currNode = nodeMap[current];
 
-      let next = null;
+      let next: string | null = null;
       let bestDist = Infinity;
 
       for (let id of remaining) {
@@ -65,6 +101,8 @@ export default function CanvasViewer({
         }
       }
 
+      if (!next) break;
+
       ordered.push(next);
       remaining.delete(next);
       current = next;
@@ -73,7 +111,12 @@ export default function CanvasViewer({
     return ordered;
   }
 
-  function drawArea(ctx, nodeIds, nodes, options = {}) {
+  function drawArea(
+    ctx: CanvasRenderingContext2D,
+    nodeIds: string[],
+    nodes: Node[],
+    options: any = {},
+  ) {
     const {
       highlight = false,
       fillColor = "orange",
@@ -82,11 +125,10 @@ export default function CanvasViewer({
 
     const pts = nodeIds
       .map((id) => nodes.find((n) => n.id === id))
-      .filter(Boolean);
+      .filter(Boolean) as Node[];
 
     if (pts.length < 3) return;
 
-    // order points
     const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
     const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
 
@@ -111,7 +153,6 @@ export default function CanvasViewer({
     ctx.fillStyle = fillColor;
     ctx.fill();
 
-    // optional subtle border only when highlighted
     if (highlight) {
       ctx.globalAlpha = 0.8;
       ctx.strokeStyle = fillColor;
@@ -123,7 +164,12 @@ export default function CanvasViewer({
   }
 
   function draw(ctx: CanvasRenderingContext2D) {
+    // RESET + CLEAR
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, 800, 600);
+
+    // APPLY CAMERA
+    ctx.setTransform(scale, 0, 0, scale, offset.x, offset.y);
 
     // --- Draw edges ---
     edges.forEach((e) => {
@@ -155,13 +201,11 @@ export default function CanvasViewer({
 
         if (nodeIds.length < 2) return;
 
-        // HANDLE AREAS (apron)
         if (segment.name === "apron") {
           drawArea(ctx, nodeIds, nodes, { highlight: true });
           return;
         }
 
-        // HANDLE NORMAL PATHS
         const finalNodeIds =
           nodeIds.length > 2 ? orderNodes(nodeIds, nodes) : nodeIds;
 
@@ -216,20 +260,17 @@ export default function CanvasViewer({
     // --- Draw areas ---
     areas.forEach((area) => {
       const nodeIds = area.node_ids;
-
       if (!nodeIds || nodeIds.length < 3) return;
 
-      // use shared drawArea
       drawArea(ctx, nodeIds, nodes, {
         highlight: false,
-        fillColor: "rgba(200, 200, 0, 1)", // base color (alpha handled inside)
+        fillColor: "rgba(200, 200, 0, 1)",
         alpha: 0.3,
       });
 
-      // --- label (unchanged) ---
       const areaNodes = nodeIds
         .map((id) => nodes.find((n) => n.id === id))
-        .filter(Boolean);
+        .filter(Boolean) as Node[];
 
       if (areaNodes.length === 0) return;
 
@@ -244,13 +285,45 @@ export default function CanvasViewer({
 
   return (
     <div>
-      {/* PATH TOOLS        */}
+      {/* PATH TOOLS */}
       <div style={{ marginBottom: "10px" }}>
-        <strong>Path Tools</strong><br />
+        <strong>Path Tools</strong>
+        <br />
         <button onClick={handleShowPath}>Show Path</button>
       </div>
 
-      {/* CANVAS                */}
+      {/* VIEW CONTROLS */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>View Controls</strong>
+        <br />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 40px)",
+            gridTemplateRows: "repeat(3, 40px)",
+            gap: "6px",
+            marginTop: "10px",
+          }}
+        >
+          {/* Row 1 */}
+          <div />
+          <button onClick={() => pan(0, 50)}>↑</button>
+          <button onClick={zoomIn}>+</button>
+
+          {/* Row 2 */}
+          <button onClick={() => pan(50, 0)}>←</button>
+          <button onClick={resetView}>R</button>
+          <button onClick={() => pan(-50, 0)}>→</button>
+
+          {/* Row 3 */}
+          <div />
+          <button onClick={() => pan(0, -50)}>↓</button>
+          <button onClick={zoomOut}>−</button>
+        </div>
+      </div>
+
+      {/* CANVAS */}
       <canvas
         ref={canvasRef}
         width={800}
