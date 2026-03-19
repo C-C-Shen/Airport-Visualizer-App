@@ -7,7 +7,4 @@ def get_node_path(airport_data, path_names):
 
     node_path = find_path(airport_data, start, end, path_names)
 
-    return {
-        "path_names": path_names,
-        "node_path": node_path
-    }
+    return node_path

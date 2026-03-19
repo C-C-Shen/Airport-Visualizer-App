@@ -27,17 +27,30 @@ def load(airport_id: str):
 
 @app.get("/airport/{airport_id}/all_paths")
 def load(airport_id: str):
-    # CYTZ tests
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "B", "E", "06"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "A", "08"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "F", "08", "C", "24"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "C", "D", "26"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "A", "E", "08", "D", "24"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron", "C", "D", "24", "E", "26", "A", "apron"])
+    # CYOW tests ALL
+    test_paths = {
+        "CYOW": {
+            "DASH PORT 5110": {"assigned_path": ["apron", "B", "25"]},
+            "DASH PORT 5619": {"assigned_path": ["apron", "A", "E", "32"]},
+            "JAZZ 1027": {"assigned_path": ["07", "C", "A", "apron"]},
+            "CGYWN": {"assigned_path": ["22", "P", "apron_general_aviation"]},
+        },
+        "CYTZ": {
+            "JAZZ 3010": {"assigned_path": ["apron", "C", "D", "26"]},
+            "DASH PORT 2331": {"assigned_path": ["08", "E", "B", "apron"]},
+            "JAZZ 2917": {"assigned_path": ["08", "F", "apron"]},
+            "CGMNQ": {"assigned_path": ["apron", "C", "D", "24"]},
+        },
+    }
 
-    # CYOW tests
-    return_path = get_node_path(load_airport(airport_id), ["apron", "B", "25"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron_general_aviation", "T", "Q", "A", "L", "14"])
-    # return_path = get_node_path(load_airport(airport_id), ["apron_general_aviation", "T", "Q", "A", "apron", "B", "25"])
-    print(f"Paths: {return_path}")
-    return return_path
+    callsigns = test_paths[airport_id]
+
+    for c in callsigns:
+        node_path = get_node_path(load_airport(airport_id), callsigns[c]["assigned_path"])
+        if isinstance(node_path, list):
+            callsigns[c]["node_path"] = node_path
+        else:
+            print(f"Got error on {c} {node_path}")
+            callsigns[c]["node_path"] = []
+            
+    return callsigns

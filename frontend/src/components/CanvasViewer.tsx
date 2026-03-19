@@ -19,12 +19,11 @@ export default function CanvasViewer({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [highlightPath, setHighlightPath] = useState<{
-    path_names: string[];
-    node_path: any[];
-  } | null>(null);
+  const [callsigns, setCallsigns] = useState<Record<string, any>>({});
+  const [selectedCallsign, setSelectedCallsign] = useState<string | null>(null);
+  const highlightPath = selectedCallsign ? callsigns[selectedCallsign] : null;
 
-  // 🔹 NEW: camera state
+  // camera state
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
@@ -38,9 +37,14 @@ export default function CanvasViewer({
     draw(ctx);
   }, [nodes, edges, pois, areas, highlightPath, scale, offset]);
 
-  async function handleShowPath() {
+  async function handleLoadCallsigns() {
     const data = await loadAllPaths(airportId);
-    setHighlightPath(data);
+    console.log(data);
+    setCallsigns(data);
+
+    // optional: auto-select first callsign
+    const first = Object.keys(data)[0];
+    if (first) setSelectedCallsign(first);
   }
 
   // VIEW CONTROLS
@@ -171,11 +175,11 @@ export default function CanvasViewer({
   }
 
   function draw(ctx: CanvasRenderingContext2D) {
-    // 🔹 RESET + CLEAR
+    // RESET + CLEAR
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, 800, 600);
 
-    // 🔹 APPLY CAMERA
+    // APPLY CAMERA
     ctx.setTransform(scale, 0, 0, scale, offset.x, offset.y);
 
     // --- Draw edges ---
@@ -195,6 +199,8 @@ export default function CanvasViewer({
       ctx.font = "12px Arial";
       ctx.fillText(e.name, (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
     });
+
+    const highlightPath = selectedCallsign ? callsigns[selectedCallsign] : null;
 
     if (highlightPath && highlightPath.node_path.length > 0) {
       ctx.lineWidth = 5;
@@ -292,11 +298,81 @@ export default function CanvasViewer({
 
   return (
     <div>
-      {/* PATH TOOLS */}
-      <div style={{ marginBottom: "10px" }}>
-        <strong>Path Tools</strong>
-        <br />
-        <button onClick={handleShowPath}>Show Path</button>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "20px",
+          marginBottom: "10px",
+        }}
+      >
+        {/* LEFT: Controls */}
+        <div>
+          <strong>Path Tools</strong>
+          <br />
+
+          <button onClick={handleLoadCallsigns}>Load Callsigns</button>
+
+          <br />
+          <br />
+
+          <select
+            value={selectedCallsign ?? ""}
+            onChange={(e) => setSelectedCallsign(e.target.value)}
+          >
+            <option value="">-- Select Callsign --</option>
+            {Object.keys(callsigns).map((cs) => (
+              <option key={cs} value={cs}>
+                {cs}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* RIGHT: Assigned Route */}
+        <div style={{ minWidth: "250px" }}>
+          <strong>Assigned Route</strong>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginTop: "6px",
+              padding: "6px",
+              border: "1px solid #ccc",
+              borderRadius: "6px",
+              background: "#f9f9f9",
+              minHeight: "32px",
+            }}
+          >
+            {selectedCallsign &&
+              callsigns[selectedCallsign]?.assigned_path?.map(
+                (segment: string, i: number, arr: string[]) => (
+                  <React.Fragment key={i}>
+                    <div
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        background: "#e3f2fd",
+                        border: "1px solid #90caf9",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {segment}
+                    </div>
+
+                    {i < arr.length - 1 && (
+                      <div style={{ alignSelf: "center", fontSize: "12px" }}>
+                        →
+                      </div>
+                    )}
+                  </React.Fragment>
+                ),
+              )}
+          </div>
+        </div>
       </div>
 
       {/* VIEW CONTROLS */}

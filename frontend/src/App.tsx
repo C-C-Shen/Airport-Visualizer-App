@@ -21,7 +21,7 @@ export default function App() {
       nodes,
       edges,
       areas,
-      pois
+      pois,
     };
 
     await saveAirport(data);
@@ -39,22 +39,20 @@ export default function App() {
     <div>
       <h1>Airport Builder</h1>
 
-      <input
-        value={airportId}
-        onChange={e => setAirportId(e.target.value)}
-      />
+      <input value={airportId} onChange={(e) => setAirportId(e.target.value)} />
 
       <button onClick={handleSave}>Save</button>
       <button onClick={handleLoad}>Load</button>
 
       {/* NEW: Toggle button */}
-      <button onClick={() => setIsEditing(prev => !prev)}>
+      <button onClick={() => setIsEditing((prev) => !prev)}>
         {isEditing ? "Switch to Viewer" : "Switch to Editor"}
       </button>
 
       {/* Conditional rendering */}
       {isEditing ? (
         <CanvasEditor
+          key={airportId}
           nodes={nodes}
           edges={edges}
           pois={pois}
@@ -66,6 +64,7 @@ export default function App() {
         />
       ) : (
         <CanvasViewer
+          key={airportId}
           nodes={nodes}
           edges={edges}
           pois={pois}
