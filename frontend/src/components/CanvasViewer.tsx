@@ -39,6 +39,89 @@ export default function CanvasViewer({
     setHighlightPath(data);
   }
 
+  function orderNodes(nodeIds, nodes) {
+    const nodeMap = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const remaining = new Set(nodeIds);
+
+    const ordered = [];
+    let current = nodeIds[0];
+
+    ordered.push(current);
+    remaining.delete(current);
+
+    while (remaining.size > 0) {
+      const currNode = nodeMap[current];
+
+      let next = null;
+      let bestDist = Infinity;
+
+      for (let id of remaining) {
+        const n = nodeMap[id];
+        const dist = Math.hypot(n.x - currNode.x, n.y - currNode.y);
+
+        if (dist < bestDist) {
+          bestDist = dist;
+          next = id;
+        }
+      }
+
+      ordered.push(next);
+      remaining.delete(next);
+      current = next;
+    }
+
+    return ordered;
+  }
+
+  function drawArea(ctx, nodeIds, nodes, options = {}) {
+    const {
+      highlight = false,
+      fillColor = "orange",
+      alpha = highlight ? 0.35 : 0.15,
+    } = options;
+
+    const pts = nodeIds
+      .map((id) => nodes.find((n) => n.id === id))
+      .filter(Boolean);
+
+    if (pts.length < 3) return;
+
+    // order points
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+
+    pts.sort((a, b) => {
+      const angleA = Math.atan2(a.y - cy, a.x - cx);
+      const angleB = Math.atan2(b.y - cy, b.x - cx);
+      return angleA - angleB;
+    });
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+
+    ctx.closePath();
+
+    ctx.save();
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // optional subtle border only when highlighted
+    if (highlight) {
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = fillColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   function draw(ctx: CanvasRenderingContext2D) {
     ctx.clearRect(0, 0, 800, 600);
 
@@ -60,9 +143,7 @@ export default function CanvasViewer({
       ctx.fillText(e.name, (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
     });
 
-    // --- Highlight path edges ---
     if (highlightPath && highlightPath.node_path.length > 0) {
-      ctx.strokeStyle = "orange";
       ctx.lineWidth = 5;
 
       highlightPath.node_path.forEach((segment) => {
@@ -74,13 +155,27 @@ export default function CanvasViewer({
 
         if (nodeIds.length < 2) return;
 
-        const n1 = nodes.find((n) => n.id === nodeIds[0]);
-        const n2 = nodes.find((n) => n.id === nodeIds[1]);
-        if (!n1 || !n2) return;
+        // HANDLE AREAS (apron)
+        if (segment.name === "apron") {
+          drawArea(ctx, nodeIds, nodes, { highlight: true });
+          return;
+        }
+
+        // HANDLE NORMAL PATHS
+        const finalNodeIds =
+          nodeIds.length > 2 ? orderNodes(nodeIds, nodes) : nodeIds;
 
         ctx.beginPath();
-        ctx.moveTo(n1.x, n1.y);
-        ctx.lineTo(n2.x, n2.y);
+
+        finalNodeIds.forEach((id, i) => {
+          const node = nodes.find((n) => n.id === id);
+          if (!node) return;
+
+          if (i === 0) ctx.moveTo(node.x, node.y);
+          else ctx.lineTo(node.x, node.y);
+        });
+
+        ctx.strokeStyle = "orange";
         ctx.stroke();
       });
     }
@@ -120,19 +215,23 @@ export default function CanvasViewer({
 
     // --- Draw areas ---
     areas.forEach((area) => {
-      const areaNodes = area.node_ids
+      const nodeIds = area.node_ids;
+
+      if (!nodeIds || nodeIds.length < 3) return;
+
+      // use shared drawArea
+      drawArea(ctx, nodeIds, nodes, {
+        highlight: false,
+        fillColor: "rgba(200, 200, 0, 1)", // base color (alpha handled inside)
+        alpha: 0.3,
+      });
+
+      // --- label (unchanged) ---
+      const areaNodes = nodeIds
         .map((id) => nodes.find((n) => n.id === id))
-        .filter(Boolean) as Node[];
+        .filter(Boolean);
 
-      if (areaNodes.length < 3) return;
-
-      ctx.beginPath();
-      ctx.moveTo(areaNodes[0].x, areaNodes[0].y);
-      areaNodes.slice(1).forEach((n) => ctx.lineTo(n.x, n.y));
-      ctx.closePath();
-
-      ctx.fillStyle = "rgba(200, 200, 0, 0.3)";
-      ctx.fill();
+      if (areaNodes.length === 0) return;
 
       const avgX = areaNodes.reduce((s, n) => s + n.x, 0) / areaNodes.length;
       const avgY = areaNodes.reduce((s, n) => s + n.y, 0) / areaNodes.length;

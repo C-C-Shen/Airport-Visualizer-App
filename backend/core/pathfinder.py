@@ -84,6 +84,7 @@ def find_path(airport_data, start, end, path_names):
     if not start_nodes or not end_nodes:
         return "INVALID START / END"
 
+    # print(path_names)
     remaining = path_names[1:-1]
     path = [start_nodes]
 
