@@ -41,5 +41,6 @@ export enum Tool {
   RUNWAY = "runway",
   AREA = "area",
   POI = "poi",
-  DELETE = "delete"
+  DELETE = "delete",
+  MOVE = "move"
 }

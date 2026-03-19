@@ -13,7 +13,7 @@ type Props = {
   setAreas: React.Dispatch<React.SetStateAction<Area[]>>;
 };
 
-type RenameMode = "edge" | "poi" | "area" | null;
+type modifyMode = "edge" | "poi" | "area" | null;
 
 export default function CanvasEditor({
   nodes,
@@ -31,7 +31,8 @@ export default function CanvasEditor({
   const [selectedPOINode, setSelectedPOINode] = useState<Node | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedAreaNodes, setSelectedAreaNodes] = useState<Node[]>([]);
-  const [renameMode, setRenameMode] = useState<RenameMode>(null);
+  const [modifyMode, setModifyMode] = useState<ModifyMode>(null);
+  const [draggingNode, setDraggingNode] = useState<Node | null>(null);
 
   function getMousePos(evt: React.MouseEvent<HTMLCanvasElement>) {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -39,6 +40,34 @@ export default function CanvasEditor({
       x: evt.clientX - rect.left,
       y: evt.clientY - rect.top,
     };
+  }
+
+  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (tool !== Tool.MOVE) return;
+
+    const pos = getMousePos(e);
+    const node = findNode(pos);
+
+    if (node) {
+      setDraggingNode(node);
+    }
+  }
+
+  function handleMouseUp() {
+    if (tool !== Tool.MOVE) return;
+    setDraggingNode(null);
+  }
+
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (tool !== Tool.MOVE || !draggingNode) return;
+
+    const pos = getMousePos(e);
+
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === draggingNode.id ? { ...n, x: pos.x, y: pos.y } : n,
+      ),
+    );
   }
 
   function findPOI(pos: { x: number; y: number }): POI | undefined {
@@ -92,13 +121,17 @@ export default function CanvasEditor({
   }
 
   function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    // if in the middle of moving nodes, don't process clicks
+    if (tool === Tool.MOVE) return;
+
     const pos = getMousePos(e);
 
-    // RENAME MODE ACTIVE
-    if (renameMode === "edge") {
+    // =========================
+    // MODIFICATION MODE
+    // =========================
+    if (modifyMode === "edge") {
       const clickedEdge = findEdge(pos);
       if (clickedEdge) {
-        // rename logic for edge type (taxiway and runways)
         const newName = prompt("Edge name", clickedEdge.name);
         if (!newName) return;
 
@@ -111,85 +144,9 @@ export default function CanvasEditor({
       return;
     }
 
-    // =========================
-    // DELETE MODE
-    // =========================
-    if (tool === Tool.DELETE) {
-      const clickedNode = findNode(pos);
-      const clickedEdge = findEdge(pos);
-      const clickedPOI = findPOI(pos);
-
-      // 1. DELETE NODE (and all references)
-      if (clickedNode) {
-        const nodeId = clickedNode.id;
-
-        // remove node
-        setNodes(prev => prev.filter(n => n.id !== nodeId));
-
-        // remove edges touching this node
-        setEdges(prev =>
-          prev.filter(e => e.from_node !== nodeId && e.to_node !== nodeId)
-        );
-
-        // remove POIs on this node
-        setPois(prev => prev.filter(p => p.node_id !== nodeId));
-
-        // remove areas containing this node
-        setAreas(prev =>
-          prev
-            .map(a => ({ ...a, node_ids: a.node_ids.filter(id => id !== nodeId) }))
-            .filter(a => a.node_ids.length >= 3) // keep only valid polygons
-        );
-
-        return;
-      }
-
-      // 2. DELETE EDGE ONLY
-      if (clickedEdge) {
-        setEdges(prev => prev.filter(e => e.id !== clickedEdge.id));
-        return;
-      }
-
-      // 3. DELETE POI ONLY
-      if (clickedPOI) {
-        setPois(prev => prev.filter(p => p.id !== clickedPOI.id));
-        return;
-      }
-
-      // 4. DELETE AREA (point‑in‑polygon)
-      const clickedArea = areas.find(area => {
-        const areaNodes = area.node_ids
-          .map(id => nodes.find(n => n.id === id))
-          .filter(Boolean) as Node[];
-        if (areaNodes.length < 3) return false;
-
-        let inside = false;
-        for (let i = 0, j = areaNodes.length - 1; i < areaNodes.length; j = i++) {
-          const xi = areaNodes[i].x, yi = areaNodes[i].y;
-          const xj = areaNodes[j].x, yj = areaNodes[j].y;
-
-          const intersect =
-            yi > pos.y !== yj > pos.y &&
-            pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi + 0.00001) + xi;
-
-          if (intersect) inside = !inside;
-        }
-        return inside;
-      });
-
-      if (clickedArea) {
-        setAreas(prev => prev.filter(a => a.id !== clickedArea.id));
-        return;
-      }
-
-      return;
-    }
-
-
-    if (renameMode === "poi") {
+    if (modifyMode === "poi") {
       const clickedPOI = findPOI(pos);
       if (clickedPOI) {
-        // rename logic for poi type
         const newType = prompt("POI type", clickedPOI.type);
         if (!newType) return;
 
@@ -210,19 +167,13 @@ export default function CanvasEditor({
       return;
     }
 
-    // RENAME MODE ACTIVE
-    if (renameMode === "area") {
-      // check if user clicked on an area
-      const clickedPos = getMousePos(e);
-
-      // find the area the user clicked inside
+    if (modifyMode === "area") {
       const clickedArea = areas.find((area) => {
         const areaNodes = area.node_ids
           .map((id) => nodes.find((n) => n.id === id))
           .filter(Boolean) as Node[];
         if (areaNodes.length < 3) return false;
 
-        // simple point-in-polygon test (ray casting)
         let inside = false;
         for (
           let i = 0, j = areaNodes.length - 1;
@@ -235,9 +186,9 @@ export default function CanvasEditor({
             yj = areaNodes[j].y;
 
           const intersect =
-            yi > clickedPos.y !== yj > clickedPos.y &&
-            clickedPos.x <
-              ((xj - xi) * (clickedPos.y - yi)) / (yj - yi + 0.00001) + xi;
+            yi > pos.y !== yj > pos.y &&
+            pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi + 0.00001) + xi;
+
           if (intersect) inside = !inside;
         }
         return inside;
@@ -252,6 +203,90 @@ export default function CanvasEditor({
             a.id === clickedArea.id ? { ...a, name: newName } : a,
           ),
         );
+      }
+
+      return;
+    }
+
+    // =========================
+    // DELETE MODE
+    // =========================
+    if (tool === Tool.DELETE) {
+      const clickedNode = findNode(pos);
+      const clickedEdge = findEdge(pos);
+      const clickedPOI = findPOI(pos);
+
+      // 1. DELETE NODE (and all references)
+      if (clickedNode) {
+        const nodeId = clickedNode.id;
+
+        // remove node
+        setNodes((prev) => prev.filter((n) => n.id !== nodeId));
+
+        // remove edges touching this node
+        setEdges((prev) =>
+          prev.filter((e) => e.from_node !== nodeId && e.to_node !== nodeId),
+        );
+
+        // remove POIs on this node
+        setPois((prev) => prev.filter((p) => p.node_id !== nodeId));
+
+        // remove areas containing this node
+        setAreas(
+          (prev) =>
+            prev
+              .map((a) => ({
+                ...a,
+                node_ids: a.node_ids.filter((id) => id !== nodeId),
+              }))
+              .filter((a) => a.node_ids.length >= 3), // keep only valid polygons
+        );
+
+        return;
+      }
+
+      // 2. DELETE EDGE ONLY
+      if (clickedEdge) {
+        setEdges((prev) => prev.filter((e) => e.id !== clickedEdge.id));
+        return;
+      }
+
+      // 3. DELETE POI ONLY
+      if (clickedPOI) {
+        setPois((prev) => prev.filter((p) => p.id !== clickedPOI.id));
+        return;
+      }
+
+      // 4. DELETE AREA (point‑in‑polygon)
+      const clickedArea = areas.find((area) => {
+        const areaNodes = area.node_ids
+          .map((id) => nodes.find((n) => n.id === id))
+          .filter(Boolean) as Node[];
+        if (areaNodes.length < 3) return false;
+
+        let inside = false;
+        for (
+          let i = 0, j = areaNodes.length - 1;
+          i < areaNodes.length;
+          j = i++
+        ) {
+          const xi = areaNodes[i].x,
+            yi = areaNodes[i].y;
+          const xj = areaNodes[j].x,
+            yj = areaNodes[j].y;
+
+          const intersect =
+            yi > pos.y !== yj > pos.y &&
+            pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi + 0.00001) + xi;
+
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      });
+
+      if (clickedArea) {
+        setAreas((prev) => prev.filter((a) => a.id !== clickedArea.id));
+        return;
       }
 
       return;
@@ -513,7 +548,8 @@ export default function CanvasEditor({
     <div>
       {/* CREATION TOOLS        */}
       <div style={{ marginBottom: "10px" }}>
-        <strong>Creation Tools</strong><br />
+        <strong>Creation Tools</strong>
+        <br />
 
         <button
           onClick={() => setTool(Tool.NODE)}
@@ -612,7 +648,8 @@ export default function CanvasEditor({
 
       {/* DELETION TOOLS        */}
       <div style={{ marginBottom: "10px" }}>
-        <strong>Deletion Tools</strong><br />
+        <strong>Deletion Tools</strong>
+        <br />
 
         <button
           onClick={() => setTool(Tool.DELETE)}
@@ -624,50 +661,80 @@ export default function CanvasEditor({
           Delete
         </button>
 
-        <button
-          onClick={() => setTool(null)}
-          style={{ marginLeft: "6px" }}
-        >
+        <button onClick={() => setTool(null)} style={{ marginLeft: "6px" }}>
           Exit Delete Mode
         </button>
       </div>
 
-      {/* RENAME TOOLS          */}
+      {/* MODIFICATION TOOLS */}
       <div style={{ marginBottom: "10px" }}>
-        <strong>Rename Tools</strong><br />
+        <strong>Modification Tools</strong>
+        <br />
 
         <button
-          onClick={() => setRenameMode("edge")}
+          onClick={() => {
+            setModifyMode("edge");
+            setTool(null);
+          }}
           style={{
-            backgroundColor: renameMode === "edge" ? "#d0eaff" : "white",
-            border: renameMode === "edge" ? "2px solid blue" : "1px solid #ccc",
+            backgroundColor: modifyMode === "edge" ? "#d0eaff" : "white",
+            border: modifyMode === "edge" ? "2px solid blue" : "1px solid #ccc",
           }}
         >
           Rename Edges
         </button>
 
         <button
-          onClick={() => setRenameMode("poi")}
+          onClick={() => {
+            setModifyMode("poi");
+            setTool(null);
+          }}
           style={{
-            backgroundColor: renameMode === "poi" ? "#d0eaff" : "white",
-            border: renameMode === "poi" ? "2px solid blue" : "1px solid #ccc",
+            backgroundColor: modifyMode === "poi" ? "#d0eaff" : "white",
+            border: modifyMode === "poi" ? "2px solid blue" : "1px solid #ccc",
           }}
         >
           Rename POIs
         </button>
 
         <button
-          onClick={() => setRenameMode("area")}
+          onClick={() => {
+            setModifyMode("area");
+            setTool(null);
+          }}
           style={{
-            backgroundColor: renameMode === "area" ? "#d0eaff" : "white",
-            border: renameMode === "area" ? "2px solid blue" : "1px solid #ccc",
+            backgroundColor: modifyMode === "area" ? "#d0eaff" : "white",
+            border: modifyMode === "area" ? "2px solid blue" : "1px solid #ccc",
           }}
         >
           Rename Areas
         </button>
 
-        <button onClick={() => setRenameMode(null)}>
-          Exit Rename
+        <button
+          onClick={() => {
+            setTool(Tool.MOVE);
+            setModifyMode(null);
+            setDraggingNode(null);
+            setSelectedNode(null);
+            setSelectedPOINode(null);
+            setSelectedAreaNodes([]);
+          }}
+          style={{
+            backgroundColor: tool === Tool.MOVE ? "#d0eaff" : "white",
+            border: tool === Tool.MOVE ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Move Node
+        </button>
+
+        <button
+          onClick={() => {
+            setModifyMode(null);
+            setTool(null);
+            setDraggingNode(null);
+          }}
+        >
+          Exit Modifications
         </button>
       </div>
 
@@ -677,6 +744,9 @@ export default function CanvasEditor({
         width={800}
         height={600}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         style={{ border: "1px solid black" }}
       />
 
@@ -694,7 +764,7 @@ export default function CanvasEditor({
             setSelectedNode(null);
             setSelectedAreaNodes([]);
             setTool(Tool.NODE);
-            setRenameMode(null);
+            setModifyMode(null);
           }}
           style={{
             backgroundColor: "white",
