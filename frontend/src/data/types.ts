@@ -40,5 +40,6 @@ export enum Tool {
   EDGE = "edge",
   RUNWAY = "runway",
   AREA = "area",
-  POI = "poi"
+  POI = "poi",
+  DELETE = "delete"
 }

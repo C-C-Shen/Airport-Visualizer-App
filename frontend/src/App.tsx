@@ -5,7 +5,7 @@ import { saveAirport, loadAirport } from "./api";
 import type { Airport, Node, Edge, POI, Area } from "./types";
 
 export default function App() {
-  const [airportId, setAirportId] = useState<string>("test");
+  const [airportId, setAirportId] = useState<string>("");
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);

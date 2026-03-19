@@ -244,8 +244,13 @@ export default function CanvasViewer({
 
   return (
     <div>
-      <h2>Airport Viewer</h2>
-      <button onClick={handleShowPath}>Show Path</button>
+      {/* PATH TOOLS        */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Path Tools</strong><br />
+        <button onClick={handleShowPath}>Show Path</button>
+      </div>
+
+      {/* CANVAS                */}
       <canvas
         ref={canvasRef}
         width={800}

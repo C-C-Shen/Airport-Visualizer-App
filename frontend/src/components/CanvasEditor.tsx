@@ -111,6 +111,81 @@ export default function CanvasEditor({
       return;
     }
 
+    // =========================
+    // DELETE MODE
+    // =========================
+    if (tool === Tool.DELETE) {
+      const clickedNode = findNode(pos);
+      const clickedEdge = findEdge(pos);
+      const clickedPOI = findPOI(pos);
+
+      // 1. DELETE NODE (and all references)
+      if (clickedNode) {
+        const nodeId = clickedNode.id;
+
+        // remove node
+        setNodes(prev => prev.filter(n => n.id !== nodeId));
+
+        // remove edges touching this node
+        setEdges(prev =>
+          prev.filter(e => e.from_node !== nodeId && e.to_node !== nodeId)
+        );
+
+        // remove POIs on this node
+        setPois(prev => prev.filter(p => p.node_id !== nodeId));
+
+        // remove areas containing this node
+        setAreas(prev =>
+          prev
+            .map(a => ({ ...a, node_ids: a.node_ids.filter(id => id !== nodeId) }))
+            .filter(a => a.node_ids.length >= 3) // keep only valid polygons
+        );
+
+        return;
+      }
+
+      // 2. DELETE EDGE ONLY
+      if (clickedEdge) {
+        setEdges(prev => prev.filter(e => e.id !== clickedEdge.id));
+        return;
+      }
+
+      // 3. DELETE POI ONLY
+      if (clickedPOI) {
+        setPois(prev => prev.filter(p => p.id !== clickedPOI.id));
+        return;
+      }
+
+      // 4. DELETE AREA (point‑in‑polygon)
+      const clickedArea = areas.find(area => {
+        const areaNodes = area.node_ids
+          .map(id => nodes.find(n => n.id === id))
+          .filter(Boolean) as Node[];
+        if (areaNodes.length < 3) return false;
+
+        let inside = false;
+        for (let i = 0, j = areaNodes.length - 1; i < areaNodes.length; j = i++) {
+          const xi = areaNodes[i].x, yi = areaNodes[i].y;
+          const xj = areaNodes[j].x, yj = areaNodes[j].y;
+
+          const intersect =
+            yi > pos.y !== yj > pos.y &&
+            pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi + 0.00001) + xi;
+
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      });
+
+      if (clickedArea) {
+        setAreas(prev => prev.filter(a => a.id !== clickedArea.id));
+        return;
+      }
+
+      return;
+    }
+
+
     if (renameMode === "poi") {
       const clickedPOI = findPOI(pos);
       if (clickedPOI) {
@@ -436,7 +511,10 @@ export default function CanvasEditor({
 
   return (
     <div>
-      <div>
+      {/* CREATION TOOLS        */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Creation Tools</strong><br />
+
         <button
           onClick={() => setTool(Tool.NODE)}
           style={{
@@ -477,21 +555,19 @@ export default function CanvasEditor({
           POI
         </button>
 
-        {tool !== Tool.AREA && (
-          <button
-            onClick={() => setTool(Tool.AREA)}
-            style={{
-              backgroundColor: tool === Tool.AREA ? "#d0eaff" : "white",
-              border: tool === Tool.AREA ? "2px solid blue" : "1px solid #ccc",
-            }}
-          >
-            Area
-          </button>
-        )}
+        <button
+          onClick={() => setTool(Tool.AREA)}
+          style={{
+            backgroundColor: tool === Tool.AREA ? "#d0eaff" : "white",
+            border: tool === Tool.AREA ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Area
+        </button>
 
         {tool === Tool.AREA && (
           <button
-            disabled={selectedAreaNodes.length < 3} // disable until 3+ nodes
+            disabled={selectedAreaNodes.length < 3}
             onClick={() => {
               const name = prompt("Enter area name (e.g. APRON, FUEL PUMPS)");
               if (!name) {
@@ -509,16 +585,56 @@ export default function CanvasEditor({
 
               setAreas((prev) => [...prev, newArea]);
               setSelectedAreaNodes([]);
-              setTool(Tool.AREA); // exit area mode
+              setTool(Tool.AREA);
             }}
             style={{
               backgroundColor: "#d0eaff",
               border: "2px solid blue",
+              marginLeft: "6px",
             }}
           >
             Set Area
           </button>
         )}
+
+        <button
+          onClick={() => {
+            setTool(null);
+            setSelectedNode(null);
+            setSelectedPOINode(null);
+            setSelectedAreaNodes([]);
+          }}
+          style={{ marginLeft: "6px" }}
+        >
+          Exit Create Mode
+        </button>
+      </div>
+
+      {/* DELETION TOOLS        */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Deletion Tools</strong><br />
+
+        <button
+          onClick={() => setTool(Tool.DELETE)}
+          style={{
+            backgroundColor: tool === Tool.DELETE ? "#fc8672" : "white",
+            border: tool === Tool.DELETE ? "2px solid red" : "1px solid #ccc",
+          }}
+        >
+          Delete
+        </button>
+
+        <button
+          onClick={() => setTool(null)}
+          style={{ marginLeft: "6px" }}
+        >
+          Exit Delete Mode
+        </button>
+      </div>
+
+      {/* RENAME TOOLS          */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>Rename Tools</strong><br />
 
         <button
           onClick={() => setRenameMode("edge")}
@@ -550,9 +666,12 @@ export default function CanvasEditor({
           Rename Areas
         </button>
 
-        <button onClick={() => setRenameMode(null)}>Exit Rename</button>
+        <button onClick={() => setRenameMode(null)}>
+          Exit Rename
+        </button>
       </div>
 
+      {/* CANVAS                */}
       <canvas
         ref={canvasRef}
         width={800}
@@ -561,29 +680,31 @@ export default function CanvasEditor({
         style={{ border: "1px solid black" }}
       />
 
-      <button
-        onClick={() => {
-          if (!confirm("Are you sure you want to reset the airport layout?"))
-            return;
-          setNodes([]);
-          setEdges([]);
-          setPois([]);
-          setAreas([]);
-          setSelectedPOINode(null);
-          setSelectedNode(null);
-          setSelectedAreaNodes([]);
-          setTool(Tool.NODE); // optional: reset tool
-          setRenameMode(null); // optional: exit rename mode
-        }}
-        style={{
-          backgroundColor: "white",
-          border: "1px solid #ccc",
-          color: "red",
-          marginLeft: "8px",
-        }}
-      >
-        Reset
-      </button>
+      {/* RESET BUTTON          */}
+      <div style={{ marginTop: "10px" }}>
+        <button
+          onClick={() => {
+            if (!confirm("Are you sure you want to reset the airport layout?"))
+              return;
+            setNodes([]);
+            setEdges([]);
+            setPois([]);
+            setAreas([]);
+            setSelectedPOINode(null);
+            setSelectedNode(null);
+            setSelectedAreaNodes([]);
+            setTool(Tool.NODE);
+            setRenameMode(null);
+          }}
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #ccc",
+            color: "red",
+          }}
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }
