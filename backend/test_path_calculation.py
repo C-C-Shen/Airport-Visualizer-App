@@ -38,7 +38,6 @@ print(f"final path: {path_results['node_path']}")
 path_results = get_node_path(airport_data, ["apron", "A", "08"])
 print(f"final path: {path_results['node_path']}")
 
-
 path_results = get_node_path(airport_data, ["apron", "B", "E", "06"])
 print(f"final path: {path_results['node_path']}")
 
