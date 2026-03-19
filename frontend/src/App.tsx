@@ -1,0 +1,78 @@
+import React, { useState } from "react";
+import CanvasEditor from "./components/CanvasEditor";
+import CanvasViewer from "./components/CanvasViewer";
+import { saveAirport, loadAirport } from "./api";
+import type { Airport, Node, Edge, POI, Area } from "./types";
+
+export default function App() {
+  const [airportId, setAirportId] = useState<string>("test");
+
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [pois, setPois] = useState<POI[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+
+  // NEW: toggle between edit and view mode
+  const [isEditing, setIsEditing] = useState<boolean>(true);
+
+  async function handleSave() {
+    const data: Airport = {
+      id: airportId,
+      nodes,
+      edges,
+      areas,
+      pois
+    };
+
+    await saveAirport(data);
+  }
+
+  async function handleLoad() {
+    const data = await loadAirport(airportId);
+    setNodes(data.nodes);
+    setEdges(data.edges);
+    setPois(data.pois);
+    setAreas(data.areas);
+  }
+
+  return (
+    <div>
+      <h1>Airport Builder</h1>
+
+      <input
+        value={airportId}
+        onChange={e => setAirportId(e.target.value)}
+      />
+
+      <button onClick={handleSave}>Save</button>
+      <button onClick={handleLoad}>Load</button>
+
+      {/* NEW: Toggle button */}
+      <button onClick={() => setIsEditing(prev => !prev)}>
+        {isEditing ? "Switch to Viewer" : "Switch to Editor"}
+      </button>
+
+      {/* Conditional rendering */}
+      {isEditing ? (
+        <CanvasEditor
+          nodes={nodes}
+          edges={edges}
+          pois={pois}
+          areas={areas}
+          setNodes={setNodes}
+          setEdges={setEdges}
+          setPois={setPois}
+          setAreas={setAreas}
+        />
+      ) : (
+        <CanvasViewer
+          nodes={nodes}
+          edges={edges}
+          pois={pois}
+          areas={areas}
+          airportId={airportId}
+        />
+      )}
+    </div>
+  );
+}

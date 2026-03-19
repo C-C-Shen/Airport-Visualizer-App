@@ -1,0 +1,589 @@
+import React, { useRef, useState, useEffect } from "react";
+import type { Node, Edge, POI, Area } from "../data/types";
+import { Tool } from "../data/types";
+
+type Props = {
+  nodes: Node[];
+  edges: Edge[];
+  pois: POI[];
+  areas: Area[];
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  setPois: React.Dispatch<React.SetStateAction<POI[]>>;
+  setAreas: React.Dispatch<React.SetStateAction<Area[]>>;
+};
+
+type RenameMode = "edge" | "poi" | "area" | null;
+
+export default function CanvasEditor({
+  nodes,
+  edges,
+  pois,
+  areas,
+  setNodes,
+  setEdges,
+  setPois,
+  setAreas,
+}: Props) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const [tool, setTool] = useState<Tool>(Tool.NODE);
+  const [selectedPOINode, setSelectedPOINode] = useState<Node | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedAreaNodes, setSelectedAreaNodes] = useState<Node[]>([]);
+  const [renameMode, setRenameMode] = useState<RenameMode>(null);
+
+  function getMousePos(evt: React.MouseEvent<HTMLCanvasElement>) {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top,
+    };
+  }
+
+  function findPOI(pos: { x: number; y: number }): POI | undefined {
+    return pois.find((p) => {
+      const n = nodes.find((n) => n.id === p.node_id);
+      if (!n) return false;
+      return Math.hypot(n.x - pos.x, n.y - pos.y) < 8;
+    });
+  }
+
+  function findNode(pos: { x: number; y: number }): Node | undefined {
+    return nodes.find((n) => Math.hypot(n.x - pos.x, n.y - pos.y) < 10);
+  }
+
+  function findEdge(pos: { x: number; y: number }): Edge | undefined {
+    const threshold = 6;
+
+    return edges.find((e) => {
+      const n1 = nodes.find((n) => n.id === e.from_node);
+      const n2 = nodes.find((n) => n.id === e.to_node);
+      if (!n1 || !n2) return false;
+
+      // distance from point to line segment
+      const A = pos.x - n1.x;
+      const B = pos.y - n1.y;
+      const C = n2.x - n1.x;
+      const D = n2.y - n1.y;
+
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      const param = lenSq !== 0 ? dot / lenSq : -1;
+
+      let xx, yy;
+
+      if (param < 0) {
+        xx = n1.x;
+        yy = n1.y;
+      } else if (param > 1) {
+        xx = n2.x;
+        yy = n2.y;
+      } else {
+        xx = n1.x + param * C;
+        yy = n1.y + param * D;
+      }
+
+      const dx = pos.x - xx;
+      const dy = pos.y - yy;
+
+      return Math.sqrt(dx * dx + dy * dy) < threshold;
+    });
+  }
+
+  function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const pos = getMousePos(e);
+
+    // RENAME MODE ACTIVE
+    if (renameMode === "edge") {
+      const clickedEdge = findEdge(pos);
+      if (clickedEdge) {
+        // rename logic for edge type (taxiway and runways)
+        const newName = prompt("Edge name", clickedEdge.name);
+        if (!newName) return;
+
+        setEdges((prev) =>
+          prev.map((e) =>
+            e.id === clickedEdge.id ? { ...e, name: newName } : e,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (renameMode === "poi") {
+      const clickedPOI = findPOI(pos);
+      if (clickedPOI) {
+        // rename logic for poi type
+        const newType = prompt("POI type", clickedPOI.type);
+        if (!newType) return;
+
+        let runway = clickedPOI.runway;
+
+        if (newType === "hold_short") {
+          runway = prompt("Runway", clickedPOI.runway || "") || undefined;
+        }
+
+        setPois((prev) =>
+          prev.map((p) =>
+            p.id === clickedPOI.id
+              ? { ...p, type: newType as POI["type"], runway }
+              : p,
+          ),
+        );
+      }
+      return;
+    }
+
+    // RENAME MODE ACTIVE
+    if (renameMode === "area") {
+      // check if user clicked on an area
+      const clickedPos = getMousePos(e);
+
+      // find the area the user clicked inside
+      const clickedArea = areas.find((area) => {
+        const areaNodes = area.node_ids
+          .map((id) => nodes.find((n) => n.id === id))
+          .filter(Boolean) as Node[];
+        if (areaNodes.length < 3) return false;
+
+        // simple point-in-polygon test (ray casting)
+        let inside = false;
+        for (
+          let i = 0, j = areaNodes.length - 1;
+          i < areaNodes.length;
+          j = i++
+        ) {
+          const xi = areaNodes[i].x,
+            yi = areaNodes[i].y;
+          const xj = areaNodes[j].x,
+            yj = areaNodes[j].y;
+
+          const intersect =
+            yi > clickedPos.y !== yj > clickedPos.y &&
+            clickedPos.x <
+              ((xj - xi) * (clickedPos.y - yi)) / (yj - yi + 0.00001) + xi;
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      });
+
+      if (clickedArea) {
+        const newName = prompt("Area name", clickedArea.name);
+        if (!newName) return;
+
+        setAreas((prev) =>
+          prev.map((a) =>
+            a.id === clickedArea.id ? { ...a, name: newName } : a,
+          ),
+        );
+      }
+
+      return;
+    }
+
+    if (tool === Tool.NODE) {
+      const pos = getMousePos(e);
+
+      const clickedEdge = findEdge(pos);
+      if (clickedEdge) {
+        const n1 = nodes.find((n) => n.id === clickedEdge.from_node)!;
+        const n2 = nodes.find((n) => n.id === clickedEdge.to_node)!;
+
+        // Snap node to edge
+        const A = pos.x - n1.x;
+        const B = pos.y - n1.y;
+        const C = n2.x - n1.x;
+        const D = n2.y - n1.y;
+        const lenSq = C * C + D * D;
+        const dot = A * C + B * D;
+        let t = lenSq !== 0 ? dot / lenSq : 0;
+        t = Math.max(0, Math.min(1, t)); // clamp
+        const snapX = n1.x + t * C;
+        const snapY = n1.y + t * D;
+
+        const newNode: Node = {
+          id: `N${nodes.length}`,
+          x: snapX,
+          y: snapY,
+        };
+
+        const edge1: Edge = {
+          id: `E${edges.length}`,
+          name: clickedEdge.name,
+          type: clickedEdge.type,
+          from_node: n1.id,
+          to_node: newNode.id,
+        };
+
+        const edge2: Edge = {
+          id: `E${edges.length + 1}`,
+          name: clickedEdge.name,
+          type: clickedEdge.type,
+          from_node: newNode.id,
+          to_node: n2.id,
+        };
+
+        setNodes((prev) => [...prev, newNode]);
+        setEdges((prev) =>
+          prev.filter((e) => e.id !== clickedEdge.id).concat([edge1, edge2]),
+        );
+
+        return;
+      }
+
+      // Normal node creation
+      const newNode: Node = {
+        id: `N${nodes.length}`,
+        x: pos.x,
+        y: pos.y,
+      };
+      setNodes((prev) => [...prev, newNode]);
+    }
+
+    if (tool === Tool.POI) {
+      const clicked = findNode(pos);
+      if (!clicked) return;
+
+      // first click → select node
+      if (!selectedPOINode) {
+        setSelectedPOINode(clicked);
+        return;
+      }
+
+      // second click → same node → create/edit POI
+      if (selectedPOINode.id === clicked.id) {
+        const type = prompt("POI type (hold_short, gate, runup)");
+        if (!type) {
+          setSelectedPOINode(null);
+          return;
+        }
+
+        let runway: string | undefined;
+
+        if (type === "hold_short") {
+          runway = prompt("Runway (e.g. 23)") || undefined;
+        }
+
+        const existing = pois.find((p) => p.node_id === clicked.id);
+        if (existing) {
+          return;
+        }
+
+        const newPOI: POI = {
+          id: `P${pois.length}`,
+          type: type as POI["type"],
+          node_id: clicked.id,
+          runway,
+        };
+
+        setPois((prev) => [...prev, newPOI]);
+        setSelectedPOINode(null);
+        return;
+      }
+
+      // clicked different node → switch selection
+      setSelectedPOINode(clicked);
+      return;
+    }
+
+    if (tool === Tool.EDGE || tool === Tool.RUNWAY) {
+      const clicked = findNode(pos);
+      if (!clicked) return;
+
+      if (!selectedNode) {
+        setSelectedNode(clicked);
+      } else {
+        if (selectedNode.id === clicked.id) {
+          alert(
+            "Cannot create an edge/runway with the same start and end node.",
+          );
+          setSelectedNode(null);
+          return;
+        }
+        const isRunway = tool === Tool.RUNWAY;
+
+        // Prompt user for edge name
+        const defaultName = isRunway ? "01" : "A";
+        const name = prompt(
+          isRunway ? "Enter runway name (e.g. 23)" : "Enter taxiway name",
+          defaultName,
+        );
+        if (!name) {
+          setSelectedNode(null);
+          return;
+        }
+
+        const newEdge: Edge = {
+          id: `E${edges.length}`,
+          name: name,
+          type: isRunway ? "runway" : "taxiway",
+          from_node: selectedNode.id,
+          to_node: clicked.id,
+        };
+
+        setEdges((prev) => [...prev, newEdge]);
+        setSelectedNode(null);
+      }
+
+      return;
+    }
+
+    if (tool === Tool.AREA) {
+      const clicked = findNode(pos);
+      if (!clicked) return;
+
+      // Avoid duplicate node selection
+      if (selectedAreaNodes.some((n) => n.id === clicked.id)) return;
+
+      setSelectedAreaNodes((prev) => [...prev, clicked]);
+      return;
+    }
+  }
+
+  function draw(ctx: CanvasRenderingContext2D) {
+    ctx.clearRect(0, 0, 800, 600);
+
+    // draw edges
+    edges.forEach((e) => {
+      const n1 = nodes.find((n) => n.id === e.from_node);
+      const n2 = nodes.find((n) => n.id === e.to_node);
+      if (!n1 || !n2) return;
+
+      ctx.beginPath();
+      ctx.moveTo(n1.x, n1.y);
+      ctx.lineTo(n2.x, n2.y);
+      ctx.strokeStyle = e.type === "runway" ? "black" : "blue";
+      ctx.lineWidth = e.type === "runway" ? 6 : 2;
+      ctx.stroke();
+
+      ctx.fillText(e.name, (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
+    });
+
+    // draw nodes
+    nodes.forEach((n) => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "red";
+      ctx.fill();
+
+      // draw node id
+      ctx.fillStyle = "black";
+      ctx.font = "12px Arial";
+      ctx.fillText(n.id, n.x + 6, n.y - 6);
+
+      // highlight selected POI node
+      if (selectedPOINode?.id === n.id) {
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    // draw POIs
+    pois.forEach((p) => {
+      const n = nodes.find((n) => n.id === p.node_id);
+      if (!n) return;
+
+      // draw POI marker
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "blue";
+      ctx.fill();
+
+      // label
+      ctx.fillStyle = "black";
+
+      let label = p.type;
+
+      if (p.type === "hold_short" && p.runway) {
+        label = `HS ${p.runway}`;
+      }
+
+      ctx.fillText(label, n.x + 8, n.y - 8);
+    });
+
+    areas.forEach((area) => {
+      const areaNodes = area.node_ids
+        .map((id) => nodes.find((n) => n.id === id))
+        .filter(Boolean) as Node[];
+
+      if (areaNodes.length < 3) return; // need at least 3 points
+
+      ctx.beginPath();
+      ctx.moveTo(areaNodes[0].x, areaNodes[0].y);
+      areaNodes.slice(1).forEach((n) => ctx.lineTo(n.x, n.y));
+      ctx.closePath();
+
+      ctx.fillStyle = "rgba(200, 200, 0, 0.3)"; // yellowish transparent
+      ctx.fill();
+
+      // label
+      ctx.fillStyle = "black";
+      const avgX =
+        areaNodes.reduce((sum, n) => sum + n.x, 0) / areaNodes.length;
+      const avgY =
+        areaNodes.reduce((sum, n) => sum + n.y, 0) / areaNodes.length;
+      ctx.fillText(area.name, avgX, avgY);
+    });
+  }
+
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    draw(ctx);
+  }, [nodes, edges, pois, areas]);
+
+  return (
+    <div>
+      <div>
+        <button
+          onClick={() => setTool(Tool.NODE)}
+          style={{
+            backgroundColor: tool === Tool.NODE ? "#d0eaff" : "white",
+            border: tool === Tool.NODE ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Node
+        </button>
+
+        <button
+          onClick={() => setTool(Tool.EDGE)}
+          style={{
+            backgroundColor: tool === Tool.EDGE ? "#d0eaff" : "white",
+            border: tool === Tool.EDGE ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Taxiway
+        </button>
+
+        <button
+          onClick={() => setTool(Tool.RUNWAY)}
+          style={{
+            backgroundColor: tool === Tool.RUNWAY ? "#d0eaff" : "white",
+            border: tool === Tool.RUNWAY ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Runway
+        </button>
+
+        <button
+          onClick={() => setTool(Tool.POI)}
+          style={{
+            backgroundColor: tool === Tool.POI ? "#d0eaff" : "white",
+            border: tool === Tool.POI ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          POI
+        </button>
+
+        {tool !== Tool.AREA && (
+          <button
+            onClick={() => setTool(Tool.AREA)}
+            style={{
+              backgroundColor: tool === Tool.AREA ? "#d0eaff" : "white",
+              border: tool === Tool.AREA ? "2px solid blue" : "1px solid #ccc",
+            }}
+          >
+            Area
+          </button>
+        )}
+
+        {tool === Tool.AREA && (
+          <button
+            disabled={selectedAreaNodes.length < 3} // disable until 3+ nodes
+            onClick={() => {
+              const name = prompt("Enter area name (e.g. APRON, FUEL PUMPS)");
+              if (!name) {
+                setSelectedAreaNodes([]);
+                setTool(Tool.AREA);
+                return;
+              }
+
+              const newArea: Area = {
+                id: `AR${areas.length}`,
+                type: "apron",
+                name,
+                node_ids: selectedAreaNodes.map((n) => n.id),
+              };
+
+              setAreas((prev) => [...prev, newArea]);
+              setSelectedAreaNodes([]);
+              setTool(Tool.AREA); // exit area mode
+            }}
+            style={{
+              backgroundColor: "#d0eaff",
+              border: "2px solid blue",
+            }}
+          >
+            Set Area
+          </button>
+        )}
+
+        <button
+          onClick={() => setRenameMode("edge")}
+          style={{
+            backgroundColor: renameMode === "edge" ? "#d0eaff" : "white",
+            border: renameMode === "edge" ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Rename Edges
+        </button>
+
+        <button
+          onClick={() => setRenameMode("poi")}
+          style={{
+            backgroundColor: renameMode === "poi" ? "#d0eaff" : "white",
+            border: renameMode === "poi" ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Rename POIs
+        </button>
+
+        <button
+          onClick={() => setRenameMode("area")}
+          style={{
+            backgroundColor: renameMode === "area" ? "#d0eaff" : "white",
+            border: renameMode === "area" ? "2px solid blue" : "1px solid #ccc",
+          }}
+        >
+          Rename Areas
+        </button>
+
+        <button onClick={() => setRenameMode(null)}>Exit Rename</button>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={600}
+        onClick={handleClick}
+        style={{ border: "1px solid black" }}
+      />
+
+      <button
+        onClick={() => {
+          if (!confirm("Are you sure you want to reset the airport layout?"))
+            return;
+          setNodes([]);
+          setEdges([]);
+          setPois([]);
+          setAreas([]);
+          setSelectedPOINode(null);
+          setSelectedNode(null);
+          setSelectedAreaNodes([]);
+          setTool(Tool.NODE); // optional: reset tool
+          setRenameMode(null); // optional: exit rename mode
+        }}
+        style={{
+          backgroundColor: "white",
+          border: "1px solid #ccc",
+          color: "red",
+          marginLeft: "8px",
+        }}
+      >
+        Reset
+      </button>
+    </div>
+  );
+}
