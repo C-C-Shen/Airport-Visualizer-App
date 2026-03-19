@@ -62,6 +62,13 @@ export default function CanvasViewer({
     setScale(newScale);
   }
 
+  function pan(dx: number, dy: number) {
+    setOffset((o) => ({
+      x: o.x + dx,
+      y: o.y + dy,
+    }));
+  }
+
   function zoomIn() {
     zoom(1.2);
   }
@@ -164,11 +171,11 @@ export default function CanvasViewer({
   }
 
   function draw(ctx: CanvasRenderingContext2D) {
-    // RESET + CLEAR
+    // 🔹 RESET + CLEAR
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, 800, 600);
 
-    // APPLY CAMERA
+    // 🔹 APPLY CAMERA
     ctx.setTransform(scale, 0, 0, scale, offset.x, offset.y);
 
     // --- Draw edges ---
