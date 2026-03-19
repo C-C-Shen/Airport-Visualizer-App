@@ -1,38 +1,13 @@
-from collections import deque
+# file is used for Sequential Multi‑Modal Pathfinding
+# ie, given a set path labels like ["aprong", "A", "B", "26"], path must return nodes that have the shortest path that adhears to those labels and order
 
-# get all nodes with area name
-def get_area_nodes(areas, name):
-    for area in areas:
-        if name == area["name"]:
-            return area["node_ids"]
-        
-    return None
+from collections import deque, defaultdict
 
 # check if any elements in the lsits overlap
 def check_list_contains(list1, list2):
     if any(item in list1 for item in list2):
         return True
     return False
-
-# get all nodes with edge name
-def get_all_edge_nodes(edges, name):
-    matching_edges = get_all_edges(edges, name)
-    nodes = set()
-    for edge in matching_edges:
-        # handle runways and taxiways
-        ends = [edge["from_node"], edge["to_node"]]
-        nodes.update(ends)
-
-    return nodes
-
-def get_all_edges(edges, name):
-    edge_list = []
-    for edge in edges:
-        # handle runways and taxiways
-        if ("/" in edge["name"] and name in edge["name"]) or (name == edge["name"]):
-            edge_list.append(edge)
-        
-    return edge_list
 
 def expand_on_current(path, available_edges, end_node):
     while True:
@@ -52,7 +27,7 @@ def expand_on_current(path, available_edges, end_node):
                 if check_list_contains(end_node["nodes"], next_nodes):
                     direct_to_end.append(e)
 
-        # 1) if any edge reaches the end_node, use it and finish
+        # if any edge reaches the end_node, use it and finish
         if direct_to_end:
             best = direct_to_end[0]
             path.append({"name": best["name"], "nodes": [best["from_node"], best["to_node"]]})
@@ -60,7 +35,7 @@ def expand_on_current(path, available_edges, end_node):
             path.append(end_node)
             return path
 
-        # 2) otherwise, if we can still move forward, take one step and loop again
+        # if we can still move forward, take one step and loop again
         if connecting:
             best = connecting[0]
             path.append({"name": best["name"], "nodes": [best["from_node"], best["to_node"]]})
@@ -68,95 +43,133 @@ def expand_on_current(path, available_edges, end_node):
             # loop continues, trying to get closer to end_node
             continue
 
-        # 3) no way to expand and we never hit end_node
+        # no way to expand and we never hit end_node
         return False
+    
+def build_graph(edges):
+    graph = defaultdict(list)
+    for e in edges:
+        graph[e["from_node"]].append({"to": e["to_node"], "name": e["name"]})
+        graph[e["to_node"]].append({"to": e["from_node"], "name": e["name"]})
+    return graph
+
+def build_area_lookup(areas):
+    node_to_areas = defaultdict(list)
+    area_map = {}
+
+    for area in areas:
+        nodes = set(area["node_ids"])
+        area_map[area["name"]] = nodes
+        for n in nodes:
+            node_to_areas[n].append(area["name"])
+
+    return area_map, node_to_areas
+
+def get_start_nodes(airport_data, start_name):
+    if "apron" in start_name.lower():
+        for area in airport_data["areas"]:
+            if area["name"] == start_name:
+                return set(area["node_ids"])
+    else:
+        nodes = set()
+        for e in airport_data["edges"]:
+            if ("/" in e["name"] and start_name in e["name"]) or (start_name == e["name"]):
+                nodes.add(e["from_node"])
+                nodes.add(e["to_node"])
+        return nodes
+    return set()
+
+def compare_name(edge_name, target):
+    if "/" in edge_name:
+        return target in edge_name.split("/")
+    if "/" in target:
+        return edge_name in target.split("/")
+    return edge_name == target
 
 def find_path(airport_data, start, end, path_names):
-    # Resolve start and end nodes
-    def resolve(name):
-        if "apron" in name.lower():
-            return {"name": name, "nodes": get_area_nodes(airport_data["areas"], name)}
-        return {"name": name, "nodes": get_all_edge_nodes(airport_data["edges"], name)}
+    edges = airport_data["edges"]
+    areas = airport_data["areas"]
 
-    start_nodes = resolve(start)
-    end_nodes = resolve(end)
+    graph = build_graph(edges)
+    area_map, node_to_areas = build_area_lookup(areas)
+
+    start_nodes = get_start_nodes(airport_data, start)
+    end_nodes = get_start_nodes(airport_data, end)
 
     if not start_nodes or not end_nodes:
         return "INVALID START / END"
 
-    # print(path_names)
-    remaining = path_names[1:-1]
-    path = [start_nodes]
+    queue = deque()
 
-    for target_name in remaining:
-        # print(f"Current Path {path}")
+    # (node, idx, path)
+    for n in start_nodes:
+        queue.append((n, 1, [{"name": start, "nodes": [n]}]))
 
-        previous = path[-1]
-        target_nodes = {
-            "name": target_name,
-            "nodes": get_all_edge_nodes(airport_data["edges"], target_name)
-        }
+    visited = set()
 
-        # All edges with this name
-        candidate_edges = get_all_edges(airport_data["edges"], target_name)
+    while queue:
+        current_node, idx, path = queue.popleft()
 
-        # Find all edges that connect to the current path
-        connecting = []
-        direct_to_target = []
-        direct_to_final = []
+        state = (current_node, idx)
+        if state in visited:
+            continue
+        visited.add(state)
 
-        for e in candidate_edges:
-            next_nodes = [e["from_node"], e["to_node"]]
-
-            if check_list_contains(previous["nodes"], next_nodes):
-                connecting.append(e)
-
-                # Connects to the next required name?
-                if check_list_contains(target_nodes["nodes"], next_nodes):
-                    direct_to_target.append(e)
-
-                # Connects to the final destination?
-                if check_list_contains(end_nodes["nodes"], next_nodes):
-                    direct_to_final.append(e)
-
-        # -------------------------------
-        # Now choose the best option
-        # -------------------------------
-
-        # Only allow jumping to FINAL if this is the LAST required name
-        is_last_required = (target_name == remaining[-1])
-
-        if is_last_required and direct_to_final:
-            best = direct_to_final[0]
-            path.append({"name": best["name"], "nodes": [best["from_node"], best["to_node"]]})
+        # end condition check
+        if idx == len(path_names):
+            if current_node in end_nodes:
+                path.append({"name": end, "nodes": [current_node]})
+                return path
             continue
 
-        # Prefer edges that reach the next required name
-        if direct_to_target:
-            best = direct_to_target[0]
-            path.append({"name": best["name"], "nodes": [best["from_node"], best["to_node"]]})
-            continue
+        target_name = path_names[idx]
 
-        # Otherwise pick any connecting edge
-        if connecting:
-            best = connecting[0]
-            path.append({"name": best["name"], "nodes": [best["from_node"], best["to_node"]]})
-            continue
+        # Area transition
+        if "apron" in target_name.lower():
+            if current_node in node_to_areas:
+                for area_name in node_to_areas[current_node]:
+                    if area_name == target_name:
+                        for next_node in area_map[area_name]:
+                            if next_node == current_node:
+                                continue
 
+                            queue.append((
+                                next_node,
+                                idx + 1,
+                                path + [{
+                                    "name": target_name,
+                                    "nodes": [current_node, next_node]
+                                }]
+                            ))
 
-        # 2) No direct connection — expand from current
-        print("No direct connection, expanding…")
+        found_match = False
 
-        previous_edges = get_all_edges(airport_data["edges"], previous["name"])
-        expanded = expand_on_current(path, previous_edges, target_nodes)
+        # First try to follow the required label
+        for e in graph[current_node]:
+            if compare_name(e["name"], target_name):
+                found_match = True
+                queue.append((
+                    e["to"],
+                    idx + 1,
+                    path + [{
+                        "name": e["name"],
+                        "nodes": [current_node, e["to"]]
+                    }]
+                ))
 
-        if not expanded:
-            return "PATH CANNOT BE COMPLETED"
+        # If no edges matched the target label, expand using previous label
+        if not found_match and idx > 1:
+            prev_label = path_names[idx - 1]
 
-        path = expanded  # update path after expansion
+            for e in graph[current_node]:
+                if compare_name(e["name"], prev_label):
+                    queue.append((
+                        e["to"],
+                        idx,  # stay on same label
+                        path + [{
+                            "name": e["name"],
+                            "nodes": [current_node, e["to"]]
+                        }]
+                    ))
 
-    # Final step: connect last required name to end
-    final_edges = get_all_edges(airport_data["edges"], remaining[-1])
-    expanded = expand_on_current(path, final_edges, end_nodes)
-
-    return expanded if expanded else "PATH CANNOT BE COMPLETED"
+    return "PATH CANNOT BE COMPLETED"
