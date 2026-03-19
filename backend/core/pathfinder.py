@@ -1,5 +1,5 @@
 # file is used for Sequential Multi‑Modal Pathfinding
-# ie, given a set path labels like ["aprong", "A", "B", "26"], path must return nodes that have the shortest path that adhears to those labels and order
+# ie, given a set path labels like ["apron", "A", "B", "26"], path must return nodes that have the shortest path that adhears to those labels and order
 
 from collections import deque, defaultdict
 

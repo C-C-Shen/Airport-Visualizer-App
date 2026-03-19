@@ -1,0 +1,496 @@
+{
+  "id": "CYOW",
+  "nodes": [
+    {
+      "id": "N0",
+      "x": 213.0,
+      "y": 175.0
+    },
+    {
+      "id": "N1",
+      "x": 279.0,
+      "y": 539.0
+    },
+    {
+      "id": "N2",
+      "x": 257.0903457749978,
+      "y": 418.1649373045334
+    },
+    {
+      "id": "N3",
+      "x": 571.0,
+      "y": 439.0
+    },
+    {
+      "id": "N4",
+      "x": 166.0,
+      "y": 411.0
+    },
+    {
+      "id": "N5",
+      "x": 267.47850232367813,
+      "y": 475.4571946336188
+    },
+    {
+      "id": "N6",
+      "x": 301.1269201887271,
+      "y": 421.0877680504333
+    },
+    {
+      "id": "N7",
+      "x": 463.1432824374667,
+      "y": 431.8412476574171
+    },
+    {
+      "id": "N8",
+      "x": 251.31368193376784,
+      "y": 386.30576096805305
+    },
+    {
+      "id": "N9",
+      "x": 238.43603308683834,
+      "y": 315.28357641832054
+    },
+    {
+      "id": "N10",
+      "x": 221.56902347061057,
+      "y": 222.25946277730688
+    },
+    {
+      "id": "N11",
+      "x": 178.0,
+      "y": 163.0
+    },
+    {
+      "id": "N12",
+      "x": 333.0,
+      "y": 107.0
+    },
+    {
+      "id": "N13",
+      "x": 243.09075512683626,
+      "y": 139.48334008320754
+    },
+    {
+      "id": "N14",
+      "x": 315.0,
+      "y": 499.0
+    },
+    {
+      "id": "N15",
+      "x": 189.0,
+      "y": 382.0
+    },
+    {
+      "id": "N16",
+      "x": 294.0,
+      "y": 391.0
+    },
+    {
+      "id": "N17",
+      "x": 499.0,
+      "y": 404.0
+    },
+    {
+      "id": "N18",
+      "x": 566.0,
+      "y": 409.0
+    },
+    {
+      "id": "N19",
+      "x": 278.0,
+      "y": 311.0
+    },
+    {
+      "id": "N20",
+      "x": 256.0,
+      "y": 206.0
+    },
+    {
+      "id": "N21",
+      "x": 249.0,
+      "y": 174.0
+    },
+    {
+      "id": "N22",
+      "x": 250.0,
+      "y": 159.0
+    },
+    {
+      "id": "N23",
+      "x": 340.0,
+      "y": 130.0
+    },
+    {
+      "id": "N24",
+      "x": 183.0,
+      "y": 135.0
+    },
+    {
+      "id": "N25",
+      "x": 234.0,
+      "y": 114.0
+    },
+    {
+      "id": "N26",
+      "x": 276.0,
+      "y": 93.0
+    },
+    {
+      "id": "N27",
+      "x": 287.0,
+      "y": 54.0
+    },
+    {
+      "id": "N28",
+      "x": 322.0,
+      "y": 78.0
+    },
+    {
+      "id": "N29",
+      "x": 313.0,
+      "y": 54.0
+    },
+    {
+      "id": "N30",
+      "x": 354.01232402711287,
+      "y": 394.8056595724511
+    },
+    {
+      "id": "N31",
+      "x": 340.0,
+      "y": 300.0
+    },
+    {
+      "id": "N32",
+      "x": 287.0,
+      "y": 33.0
+    },
+    {
+      "id": "N33",
+      "x": 317.0,
+      "y": 33.0
+    }
+  ],
+  "edges": [
+    {
+      "id": "E3",
+      "name": "07/25",
+      "type": "runway",
+      "from_node": "N2",
+      "to_node": "N4"
+    },
+    {
+      "id": "E5",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N5",
+      "to_node": "N1"
+    },
+    {
+      "id": "E5",
+      "name": "07/25",
+      "type": "runway",
+      "from_node": "N2",
+      "to_node": "N6"
+    },
+    {
+      "id": "E5",
+      "name": "07/25",
+      "type": "runway",
+      "from_node": "N6",
+      "to_node": "N7"
+    },
+    {
+      "id": "E8",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N9",
+      "to_node": "N8"
+    },
+    {
+      "id": "E8",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N10",
+      "to_node": "N9"
+    },
+    {
+      "id": "E8",
+      "name": "04/22",
+      "type": "runway",
+      "from_node": "N11",
+      "to_node": "N13"
+    },
+    {
+      "id": "E9",
+      "name": "04/22",
+      "type": "runway",
+      "from_node": "N13",
+      "to_node": "N12"
+    },
+    {
+      "id": "E8",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N0",
+      "to_node": "N10"
+    },
+    {
+      "id": "E9",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N8",
+      "to_node": "N2"
+    },
+    {
+      "id": "E10",
+      "name": "14/32",
+      "type": "runway",
+      "from_node": "N2",
+      "to_node": "N5"
+    },
+    {
+      "id": "E11",
+      "name": "07/25",
+      "type": "runway",
+      "from_node": "N7",
+      "to_node": "N3"
+    },
+    {
+      "id": "E12",
+      "name": "E",
+      "type": "taxiway",
+      "from_node": "N1",
+      "to_node": "N14"
+    },
+    {
+      "id": "E13",
+      "name": "E",
+      "type": "taxiway",
+      "from_node": "N14",
+      "to_node": "N6"
+    },
+    {
+      "id": "E14",
+      "name": "J",
+      "type": "taxiway",
+      "from_node": "N5",
+      "to_node": "N14"
+    },
+    {
+      "id": "E15",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N15",
+      "to_node": "N4"
+    },
+    {
+      "id": "E16",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N15",
+      "to_node": "N8"
+    },
+    {
+      "id": "E17",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N8",
+      "to_node": "N16"
+    },
+    {
+      "id": "E19",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N17",
+      "to_node": "N18"
+    },
+    {
+      "id": "E20",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N18",
+      "to_node": "N3"
+    },
+    {
+      "id": "E21",
+      "name": "F",
+      "type": "taxiway",
+      "from_node": "N17",
+      "to_node": "N7"
+    },
+    {
+      "id": "E22",
+      "name": "E",
+      "type": "taxiway",
+      "from_node": "N16",
+      "to_node": "N6"
+    },
+    {
+      "id": "E23",
+      "name": "P",
+      "type": "taxiway",
+      "from_node": "N24",
+      "to_node": "N25"
+    },
+    {
+      "id": "E24",
+      "name": "P",
+      "type": "taxiway",
+      "from_node": "N24",
+      "to_node": "N11"
+    },
+    {
+      "id": "E25",
+      "name": "P",
+      "type": "taxiway",
+      "from_node": "N25",
+      "to_node": "N26"
+    },
+    {
+      "id": "E26",
+      "name": "P",
+      "type": "taxiway",
+      "from_node": "N27",
+      "to_node": "N26"
+    },
+    {
+      "id": "E27",
+      "name": "T",
+      "type": "taxiway",
+      "from_node": "N27",
+      "to_node": "N29"
+    },
+    {
+      "id": "E28",
+      "name": "T",
+      "type": "taxiway",
+      "from_node": "N29",
+      "to_node": "N28"
+    },
+    {
+      "id": "E29",
+      "name": "T",
+      "type": "taxiway",
+      "from_node": "N28",
+      "to_node": "N12"
+    },
+    {
+      "id": "E30",
+      "name": "Q",
+      "type": "taxiway",
+      "from_node": "N22",
+      "to_node": "N23"
+    },
+    {
+      "id": "E31",
+      "name": "Q",
+      "type": "taxiway",
+      "from_node": "N12",
+      "to_node": "N23"
+    },
+    {
+      "id": "E32",
+      "name": "M",
+      "type": "taxiway",
+      "from_node": "N25",
+      "to_node": "N13"
+    },
+    {
+      "id": "E33",
+      "name": "M",
+      "type": "taxiway",
+      "from_node": "N22",
+      "to_node": "N13"
+    },
+    {
+      "id": "E34",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N22",
+      "to_node": "N21"
+    },
+    {
+      "id": "E35",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N21",
+      "to_node": "N20"
+    },
+    {
+      "id": "E36",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N20",
+      "to_node": "N19"
+    },
+    {
+      "id": "E37",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N19",
+      "to_node": "N16"
+    },
+    {
+      "id": "E38",
+      "name": "L",
+      "type": "taxiway",
+      "from_node": "N0",
+      "to_node": "N21"
+    },
+    {
+      "id": "E39",
+      "name": "K",
+      "type": "taxiway",
+      "from_node": "N20",
+      "to_node": "N10"
+    },
+    {
+      "id": "E40",
+      "name": "D",
+      "type": "taxiway",
+      "from_node": "N9",
+      "to_node": "N19"
+    },
+    {
+      "id": "E41",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N16",
+      "to_node": "N30"
+    },
+    {
+      "id": "E42",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N30",
+      "to_node": "N17"
+    }
+  ],
+  "areas": [
+    {
+      "id": "AR0",
+      "type": "apron",
+      "name": "apron",
+      "node_ids": [
+        "N19",
+        "N31",
+        "N30",
+        "N16"
+      ]
+    },
+    {
+      "id": "AR1",
+      "type": "apron",
+      "name": "apron_general_aviation",
+      "node_ids": [
+        "N32",
+        "N33",
+        "N29",
+        "N27"
+      ]
+    }
+  ],
+  "pois": []
+}
