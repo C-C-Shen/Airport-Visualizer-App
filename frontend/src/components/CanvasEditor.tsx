@@ -33,12 +33,18 @@ export default function CanvasEditor({
   const [selectedAreaNodes, setSelectedAreaNodes] = useState<Node[]>([]);
   const [modifyMode, setModifyMode] = useState<ModifyMode>(null);
   const [draggingNode, setDraggingNode] = useState<Node | null>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 }); // pan
+  const [scale, setScale] = useState(1); // zoom
 
   function getMousePos(evt: React.MouseEvent<HTMLCanvasElement>) {
     const rect = canvasRef.current!.getBoundingClientRect();
+
+    const screenX = evt.clientX - rect.left;
+    const screenY = evt.clientY - rect.top;
+
     return {
-      x: evt.clientX - rect.left,
-      y: evt.clientY - rect.top,
+      x: (screenX - offset.x) / scale,
+      y: (screenY - offset.y) / scale,
     };
   }
 
@@ -51,6 +57,45 @@ export default function CanvasEditor({
     if (node) {
       setDraggingNode(node);
     }
+  }
+
+  // VIEW CONTROLS
+  function zoom(factor: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const newScale = Math.max(0.2, Math.min(scale * factor, 5));
+    const scaleRatio = newScale / scale;
+
+    setOffset({
+      x: cx - (cx - offset.x) * scaleRatio,
+      y: cy - (cy - offset.y) * scaleRatio,
+    });
+
+    setScale(newScale);
+  }
+
+  function pan(dx: number, dy: number) {
+    setOffset((o) => ({
+      x: o.x + dx,
+      y: o.y + dy,
+    }));
+  }
+
+  function zoomIn() {
+    zoom(1.2);
+  }
+
+  function zoomOut() {
+    zoom(1 / 1.2);
+  }
+
+  function resetView() {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
   }
 
   function handleMouseUp() {
@@ -454,6 +499,14 @@ export default function CanvasEditor({
   function draw(ctx: CanvasRenderingContext2D) {
     ctx.clearRect(0, 0, 800, 600);
 
+    ctx.save();
+
+    // Apply camera transform
+    ctx.translate(offset.x, offset.y);
+    ctx.scale(scale, scale);
+
+    ctx.clearRect(0, 0, 800, 600);
+
     // draw edges
     edges.forEach((e) => {
       const n1 = nodes.find((n) => n.id === e.from_node);
@@ -536,13 +589,15 @@ export default function CanvasEditor({
         areaNodes.reduce((sum, n) => sum + n.y, 0) / areaNodes.length;
       ctx.fillText(area.name, avgX, avgY);
     });
+
+    ctx.restore();
   }
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     draw(ctx);
-  }, [nodes, edges, pois, areas]);
+  }, [nodes, edges, pois, areas, offset, scale]);
 
   return (
     <div>
@@ -736,6 +791,37 @@ export default function CanvasEditor({
         >
           Exit Modifications
         </button>
+      </div>
+
+      {/* VIEW CONTROLS */}
+      <div style={{ marginBottom: "10px" }}>
+        <strong>View Controls</strong>
+        <br />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 40px)",
+            gridTemplateRows: "repeat(3, 40px)",
+            gap: "6px",
+            marginTop: "10px",
+          }}
+        >
+          {/* Row 1 */}
+          <div />
+          <button onClick={() => pan(0, 50)}>↑</button>
+          <button onClick={zoomIn}>+</button>
+
+          {/* Row 2 */}
+          <button onClick={() => pan(50, 0)}>←</button>
+          <button onClick={resetView}>R</button>
+          <button onClick={() => pan(-50, 0)}>→</button>
+
+          {/* Row 3 */}
+          <div />
+          <button onClick={() => pan(0, -50)}>↓</button>
+          <button onClick={zoomOut}>−</button>
+        </div>
       </div>
 
       {/* CANVAS                */}

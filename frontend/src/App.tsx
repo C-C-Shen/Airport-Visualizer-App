@@ -5,7 +5,8 @@ import { saveAirport, loadAirport } from "./api";
 import type { Airport, Node, Edge, POI, Area } from "./types";
 
 export default function App() {
-  const [airportId, setAirportId] = useState<string>("");
+  const [inputId, setInputId] = useState<string>("");
+  const [airportId, setAirportId] = useState<string>(""); // active ID
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -16,8 +17,10 @@ export default function App() {
   const [isEditing, setIsEditing] = useState<boolean>(true);
 
   async function handleSave() {
+    setAirportId(inputId); // commit input → active
+
     const data: Airport = {
-      id: airportId,
+      id: inputId,
       nodes,
       edges,
       areas,
@@ -28,7 +31,9 @@ export default function App() {
   }
 
   async function handleLoad() {
-    const data = await loadAirport(airportId);
+    setAirportId(inputId); // commit input → active
+
+    const data = await loadAirport(inputId);
     setNodes(data.nodes);
     setEdges(data.edges);
     setPois(data.pois);
@@ -39,7 +44,7 @@ export default function App() {
     <div>
       <h1>Airport Builder</h1>
 
-      <input value={airportId} onChange={(e) => setAirportId(e.target.value)} />
+      <input value={inputId} onChange={(e) => setInputId(e.target.value)} />
 
       <button onClick={handleSave}>Save</button>
       <button onClick={handleLoad}>Load</button>
@@ -52,7 +57,6 @@ export default function App() {
       {/* Conditional rendering */}
       {isEditing ? (
         <CanvasEditor
-          key={airportId}
           nodes={nodes}
           edges={edges}
           pois={pois}
@@ -64,7 +68,6 @@ export default function App() {
         />
       ) : (
         <CanvasViewer
-          key={airportId}
           nodes={nodes}
           edges={edges}
           pois={pois}

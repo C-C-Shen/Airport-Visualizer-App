@@ -47,6 +47,10 @@ export default function CanvasViewer({
     if (first) setSelectedCallsign(first);
   }
 
+  useEffect(() => {
+    handleLoadCallsigns()
+  }, [airportId])
+
   // VIEW CONTROLS
   function zoom(factor: number) {
     const canvas = canvasRef.current;
