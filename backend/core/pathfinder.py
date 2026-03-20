@@ -118,7 +118,13 @@ def find_path(airport_data, start, end, path_names):
         # end condition check
         if idx == len(path_names):
             if current_node in end_nodes:
-                path.append({"name": end, "nodes": [current_node]})
+                # Only append end node if the last segment isn't an apron
+                if not path_names[idx - 1].lower().startswith("apron"):
+                    path.append({"name": end, "nodes": [current_node]})
+                    return path
+                
+                # ending is apron, remove last edge->apron addition since it may cut through the apron randomly
+                path.pop()
                 return path
             continue
 
