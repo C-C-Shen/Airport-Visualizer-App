@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import type { Node, Edge, POI, Area } from "../data/types";
 import { Tool } from "../data/types";
+import CanvasBase from "./CanvasBase";
+import { drawEdges, drawNodes, drawPOIs, drawAreas } from "./utils/drawUtils";
 
 type Props = {
   nodes: Node[];
@@ -13,7 +15,7 @@ type Props = {
   setAreas: React.Dispatch<React.SetStateAction<Area[]>>;
 };
 
-type modifyMode = "edge" | "poi" | "area" | null;
+type ModifyMode = "edge" | "poi" | "area" | null;
 
 export default function CanvasEditor({
   nodes,
@@ -33,80 +35,23 @@ export default function CanvasEditor({
   const [selectedAreaNodes, setSelectedAreaNodes] = useState<Node[]>([]);
   const [modifyMode, setModifyMode] = useState<ModifyMode>(null);
   const [draggingNode, setDraggingNode] = useState<Node | null>(null);
-  const [offset, setOffset] = useState({ x: 0, y: 0 }); // pan
-  const [scale, setScale] = useState(1); // zoom
-
-  function getMousePos(evt: React.MouseEvent<HTMLCanvasElement>) {
-    const rect = canvasRef.current!.getBoundingClientRect();
-
-    const screenX = evt.clientX - rect.left;
-    const screenY = evt.clientY - rect.top;
-
-    return {
-      x: (screenX - offset.x) / scale,
-      y: (screenY - offset.y) / scale,
-    };
-  }
-
-  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (tool !== Tool.MOVE) return;
-
-    const pos = getMousePos(e);
-    const node = findNode(pos);
-
-    if (node) {
-      setDraggingNode(node);
-    }
-  }
-
-  // VIEW CONTROLS
-  function zoom(factor: number) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-
-    const newScale = Math.max(0.2, Math.min(scale * factor, 5));
-    const scaleRatio = newScale / scale;
-
-    setOffset({
-      x: cx - (cx - offset.x) * scaleRatio,
-      y: cy - (cy - offset.y) * scaleRatio,
-    });
-
-    setScale(newScale);
-  }
-
-  function pan(dx: number, dy: number) {
-    setOffset((o) => ({
-      x: o.x + dx,
-      y: o.y + dy,
-    }));
-  }
-
-  function zoomIn() {
-    zoom(1.2);
-  }
-
-  function zoomOut() {
-    zoom(1 / 1.2);
-  }
-
-  function resetView() {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
-  }
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
 
   function handleMouseUp() {
     if (tool !== Tool.MOVE) return;
     setDraggingNode(null);
   }
 
-  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (tool !== Tool.MOVE || !draggingNode) return;
+  function handleMouseDown(pos: { x: number; y: number }, e: React.MouseEvent) {
+    if (tool !== Tool.MOVE) return;
 
-    const pos = getMousePos(e);
+    const node = findNode(pos);
+    if (node) setDraggingNode(node);
+  }
+
+  function handleMouseMove(pos: { x: number; y: number }, e: React.MouseEvent) {
+    if (tool !== Tool.MOVE || !draggingNode) return;
 
     setNodes((prev) =>
       prev.map((n) =>
@@ -165,15 +110,12 @@ export default function CanvasEditor({
     });
   }
 
-  function handleClick(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handleClick(pos: { x: number; y: number }, e: React.MouseEvent) {
+    // use pos directly; no getMousePos needed
     // if in the middle of moving nodes, don't process clicks
     if (tool === Tool.MOVE) return;
 
-    const pos = getMousePos(e);
-
-    // =========================
     // MODIFICATION MODE
-    // =========================
     if (modifyMode === "edge") {
       const clickedEdge = findEdge(pos);
       if (clickedEdge) {
@@ -338,8 +280,6 @@ export default function CanvasEditor({
     }
 
     if (tool === Tool.NODE) {
-      const pos = getMousePos(e);
-
       const clickedEdge = findEdge(pos);
       if (clickedEdge) {
         const n1 = nodes.find((n) => n.id === clickedEdge.from_node)!;
@@ -494,103 +434,6 @@ export default function CanvasEditor({
       setSelectedAreaNodes((prev) => [...prev, clicked]);
       return;
     }
-  }
-
-  function draw(ctx: CanvasRenderingContext2D) {
-    ctx.clearRect(0, 0, 800, 600);
-
-    ctx.save();
-
-    // Apply camera transform
-    ctx.translate(offset.x, offset.y);
-    ctx.scale(scale, scale);
-
-    ctx.clearRect(0, 0, 800, 600);
-
-    // draw edges
-    edges.forEach((e) => {
-      const n1 = nodes.find((n) => n.id === e.from_node);
-      const n2 = nodes.find((n) => n.id === e.to_node);
-      if (!n1 || !n2) return;
-
-      ctx.beginPath();
-      ctx.moveTo(n1.x, n1.y);
-      ctx.lineTo(n2.x, n2.y);
-      ctx.strokeStyle = e.type === "runway" ? "black" : "blue";
-      ctx.lineWidth = e.type === "runway" ? 6 : 2;
-      ctx.stroke();
-
-      ctx.fillText(e.name, (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
-    });
-
-    // draw nodes
-    nodes.forEach((n) => {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = "red";
-      ctx.fill();
-
-      // draw node id
-      ctx.fillStyle = "black";
-      ctx.font = "12px Arial";
-      ctx.fillText(n.id, n.x + 6, n.y - 6);
-
-      // highlight selected POI node
-      if (selectedPOINode?.id === n.id) {
-        ctx.strokeStyle = "blue";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-    });
-
-    // draw POIs
-    pois.forEach((p) => {
-      const n = nodes.find((n) => n.id === p.node_id);
-      if (!n) return;
-
-      // draw POI marker
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "blue";
-      ctx.fill();
-
-      // label
-      ctx.fillStyle = "black";
-
-      let label = p.type;
-
-      if (p.type === "hold_short" && p.runway) {
-        label = `HS ${p.runway}`;
-      }
-
-      ctx.fillText(label, n.x + 8, n.y - 8);
-    });
-
-    areas.forEach((area) => {
-      const areaNodes = area.node_ids
-        .map((id) => nodes.find((n) => n.id === id))
-        .filter(Boolean) as Node[];
-
-      if (areaNodes.length < 3) return; // need at least 3 points
-
-      ctx.beginPath();
-      ctx.moveTo(areaNodes[0].x, areaNodes[0].y);
-      areaNodes.slice(1).forEach((n) => ctx.lineTo(n.x, n.y));
-      ctx.closePath();
-
-      ctx.fillStyle = "rgba(200, 200, 0, 0.3)"; // yellowish transparent
-      ctx.fill();
-
-      // label
-      ctx.fillStyle = "black";
-      const avgX =
-        areaNodes.reduce((sum, n) => sum + n.x, 0) / areaNodes.length;
-      const avgY =
-        areaNodes.reduce((sum, n) => sum + n.y, 0) / areaNodes.length;
-      ctx.fillText(area.name, avgX, avgY);
-    });
-
-    ctx.restore();
   }
 
   useEffect(() => {
@@ -793,47 +636,22 @@ export default function CanvasEditor({
         </button>
       </div>
 
-      {/* VIEW CONTROLS */}
-      <div style={{ marginBottom: "10px" }}>
-        <strong>View Controls</strong>
-        <br />
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 40px)",
-            gridTemplateRows: "repeat(3, 40px)",
-            gap: "6px",
-            marginTop: "10px",
-          }}
-        >
-          {/* Row 1 */}
-          <div />
-          <button onClick={() => pan(0, 50)}>↑</button>
-          <button onClick={zoomIn}>+</button>
-
-          {/* Row 2 */}
-          <button onClick={() => pan(50, 0)}>←</button>
-          <button onClick={resetView}>R</button>
-          <button onClick={() => pan(-50, 0)}>→</button>
-
-          {/* Row 3 */}
-          <div />
-          <button onClick={() => pan(0, -50)}>↓</button>
-          <button onClick={zoomOut}>−</button>
-        </div>
-      </div>
-
       {/* CANVAS                */}
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={600}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
+      <CanvasBase
+        draw={(ctx) => {
+          drawEdges(ctx, nodes, edges);
+          drawNodes(ctx, nodes);
+          drawPOIs(ctx, nodes, pois);
+          drawAreas(ctx, nodes, areas);
+        }}
+        onClick={(pos) => handleClick(pos)}
+        onMouseDown={(pos, e) => handleMouseDown(pos, e)}
+        onMouseMove={(pos, e) => handleMouseMove(pos, e)}
         onMouseUp={handleMouseUp}
-        style={{ border: "1px solid black" }}
+        offset={offset}
+        scale={scale}
+        setOffset={setOffset}
+        setScale={setScale}
       />
 
       {/* RESET BUTTON          */}
