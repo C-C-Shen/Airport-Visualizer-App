@@ -1,0 +1,219 @@
+{
+  "id": "CYND",
+  "nodes": [
+    {
+      "id": "N0",
+      "x": 98.0,
+      "y": 598.0
+    },
+    {
+      "id": "N1",
+      "x": 870.0,
+      "y": 398.0
+    },
+    {
+      "id": "N2",
+      "x": 337.0,
+      "y": 585.0
+    },
+    {
+      "id": "N3",
+      "x": 494.0,
+      "y": 573.0
+    },
+    {
+      "id": "N5",
+      "x": 651.0,
+      "y": 504.0
+    },
+    {
+      "id": "N6",
+      "x": 596.0,
+      "y": 534.0
+    },
+    {
+      "id": "N7",
+      "x": 881.0,
+      "y": 443.0
+    },
+    {
+      "id": "N8",
+      "x": 525.0,
+      "y": 557.0
+    },
+    {
+      "id": "N9",
+      "x": 534.0,
+      "y": 590.0
+    },
+    {
+      "id": "N13",
+      "x": 507.0,
+      "y": 493.0
+    },
+    {
+      "id": "N14",
+      "x": 323.0,
+      "y": 538.0
+    },
+    {
+      "id": "N11",
+      "x": 638.4203659246843,
+      "y": 458.60624032274103
+    },
+    {
+      "id": "N12",
+      "x": 638.4203659246842,
+      "y": 458.60624032274103
+    },
+    {
+      "id": "N15",
+      "x": 598.236739826246,
+      "y": 573.9566365169181
+    },
+    {
+      "id": "N16",
+      "x": 611.911740540695,
+      "y": 625.0285779606767
+    },
+    {
+      "id": "N17",
+      "x": 546.3275534407865,
+      "y": 643.1688850308642
+    }
+  ],
+  "edges": [
+    {
+      "id": "E0",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N2",
+      "to_node": "N3"
+    },
+    {
+      "id": "E2",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N7",
+      "to_node": "N5"
+    },
+    {
+      "id": "E3",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N5",
+      "to_node": "N6"
+    },
+    {
+      "id": "E4",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N6",
+      "to_node": "N8"
+    },
+    {
+      "id": "E4",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N9",
+      "to_node": "N8"
+    },
+    {
+      "id": "E5",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N3",
+      "to_node": "N8"
+    },
+    {
+      "id": "E6",
+      "name": "C",
+      "type": "taxiway",
+      "from_node": "N14",
+      "to_node": "N2"
+    },
+    {
+      "id": "E7",
+      "name": "A",
+      "type": "taxiway",
+      "from_node": "N13",
+      "to_node": "N8"
+    },
+    {
+      "id": "E8",
+      "name": "B",
+      "type": "taxiway",
+      "from_node": "N7",
+      "to_node": "N1"
+    },
+    {
+      "id": "E9",
+      "name": "09/27",
+      "type": "runway",
+      "from_node": "N0",
+      "to_node": "N14"
+    },
+    {
+      "id": "E10",
+      "name": "09/27",
+      "type": "runway",
+      "from_node": "N14",
+      "to_node": "N13"
+    },
+    {
+      "id": "E13",
+      "name": "09/27",
+      "type": "runway",
+      "from_node": "N11",
+      "to_node": "N1"
+    },
+    {
+      "id": "E13",
+      "name": "09/27",
+      "type": "runway",
+      "from_node": "N13",
+      "to_node": "N12"
+    },
+    {
+      "id": "E14",
+      "name": "09/27",
+      "type": "runway",
+      "from_node": "N12",
+      "to_node": "N11"
+    },
+    {
+      "id": "E14",
+      "name": "D",
+      "type": "taxiway",
+      "from_node": "N5",
+      "to_node": "N11"
+    }
+  ],
+  "areas": [
+    {
+      "id": "AR0",
+      "type": "apron",
+      "name": "apron-2",
+      "node_ids": [
+        "N9",
+        "N15",
+        "N16",
+        "N17"
+      ]
+    }
+  ],
+  "pois": [],
+  "charts": [
+    {
+      "id": "chart_1774107117624_0",
+      "name": "CYND_AERODROME_CHART.png",
+      "x": -61.0,
+      "y": -388.78373112518284,
+      "width": 2053.0,
+      "height": 3199.0,
+      "scale": 0.5314174378957623,
+      "z_index": 0,
+      "imageData": "/charts/CYND/chart_1774107117624_0.png"
+    }
+  ]
+}

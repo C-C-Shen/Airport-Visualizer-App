@@ -1,9 +1,11 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from storage import save_airport, load_airport
-from core.pipeline import get_node_path
+import os
 
 from models import Airport
+from core.pipeline import get_node_path
+from storage import save_airport, load_airport
 
 app = FastAPI()
 
@@ -15,15 +17,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/charts", StaticFiles(directory="data"), name="charts")
+
 @app.post("/airport")
 def save(data: Airport):
-    print()
     save_airport(data)
     return {"status": "ok"}
 
 @app.get("/airport/{airport_id}")
 def load(airport_id: str):
-    return load_airport(airport_id)
+    data = load_airport(airport_id)
+    if not data:
+        return {"error": "Not found"}
+    return data
 
 @app.get("/airport/{airport_id}/all_paths")
 def load(airport_id: str):

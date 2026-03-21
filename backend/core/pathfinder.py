@@ -66,18 +66,26 @@ def build_area_lookup(areas):
     return area_map, node_to_areas
 
 def get_start_nodes(airport_data, start_name):
+    start_name_upper = start_name.upper()
+    
+    # 1. Check POIs/Fixes first
+    for poi in airport_data.get("pois", []):
+        if poi.get("name") and poi["name"].upper() == start_name_upper:
+            return {poi["node_id"]}
+
+    # 2. Existing Apron Logic
     if "apron" in start_name.lower():
         for area in airport_data["areas"]:
             if area["name"] == start_name:
                 return set(area["node_ids"])
-    else:
-        nodes = set()
-        for e in airport_data["edges"]:
-            if ("/" in e["name"] and start_name in e["name"]) or (start_name == e["name"]):
-                nodes.add(e["from_node"])
-                nodes.add(e["to_node"])
-        return nodes
-    return set()
+    
+    # 3. Existing Edge/Runway Logic
+    nodes = set()
+    for e in airport_data["edges"]:
+        if ("/" in e["name"] and start_name in e["name"]) or (start_name == e["name"]):
+            nodes.add(e["from_node"])
+            nodes.add(e["to_node"])
+    return nodes
 
 def compare_name(edge_name, target):
     if "/" in edge_name:
@@ -179,3 +187,19 @@ def find_path(airport_data, start, end, path_names):
                     ))
 
     return "PATH CANNOT BE COMPLETED"
+
+# unlike taxi instructions, these are strict sequencial point to point traversals
+def get_approach_node_path(airport_data, fix_list):
+    """
+    fix_list example: ["DEDAR", "SPUZM", "09"]
+    """
+    # The 'start' is the first fix
+    start_fix = fix_list[0]
+    # The 'end' is the last fix (usually the runway)
+    end_fix = fix_list[-1]
+    # The 'path_names' are the fixes we must pass through in order
+    # Because our edges are named after the 'to_node' fix, 
+    # the labels are just the fix names starting from the second one
+    labels = fix_list
+    
+    return find_path(airport_data, start_fix, end_fix, labels)

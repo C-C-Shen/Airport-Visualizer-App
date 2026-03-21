@@ -50,21 +50,66 @@ function drawArea(
   ctx.restore();
 }
 
-export function drawEdges(ctx, nodes, edges) {
-  // --- Draw edges ---
+/**
+ * Helper to draw an arrowhead at the end of a line segment
+ */
+function drawArrowhead(ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number, size: number) {
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  
+  // Move to the destination point
+  ctx.setLineDash([]); // Arrows should be solid
+  ctx.beginPath();
+  ctx.moveTo(toX, toY);
+  ctx.lineTo(
+    toX - size * Math.cos(angle - Math.PI / 6),
+    toY - size * Math.sin(angle - Math.PI / 6)
+  );
+  ctx.moveTo(toX, toY);
+  ctx.lineTo(
+    toX - size * Math.cos(angle + Math.PI / 6),
+    toY - size * Math.sin(angle + Math.PI / 6)
+  );
+  ctx.stroke();
+}
+
+export function drawEdges(ctx: CanvasRenderingContext2D, nodes, edges) {
   edges.forEach((e) => {
     const n1 = nodes.find((n) => n.id === e.from_node);
     const n2 = nodes.find((n) => n.id === e.to_node);
     if (!n1 || !n2) return;
 
+    ctx.save(); // Save state to handle dashed lines without affecting other draws
     ctx.beginPath();
     ctx.moveTo(n1.x, n1.y);
     ctx.lineTo(n2.x, n2.y);
-    ctx.strokeStyle = e.type === "runway" ? "black" : "blue";
-    ctx.lineWidth = e.type === "runway" ? 6 : 2;
+
+    if (e.type === "runway") {
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 6;
+      ctx.setLineDash([]); 
+    } else if (e.type === "approach") {
+      ctx.strokeStyle = "#28a745"; // Success Green
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);    // Dashed pattern: 10px dash, 5px gap
+    } else {
+      // Default Taxiway
+      ctx.strokeStyle = "blue";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+    }
+
     ctx.stroke();
 
-    ctx.fillText(e.name, (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
+    if (e.type === "approach") {
+      drawArrowhead(ctx, n1.x, n1.y, n2.x, n2.y, 10);
+    }
+
+    ctx.restore(); // Restore resets the line dash and styles
+
+    // Label handling
+    ctx.fillStyle = "black";
+    ctx.font = "10px Arial";
+    ctx.fillText(e.name || "", (n1.x + n2.x) / 2, (n1.y + n2.y) / 2);
   });
 }
 

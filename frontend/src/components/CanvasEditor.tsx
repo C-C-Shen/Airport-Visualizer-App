@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import type { Node, Edge, POI, Area } from "../data/types";
+import type { Node, Edge, POI, Area, Chart } from "../data/types";
 import { Tool } from "../data/types";
 import CanvasBase from "./CanvasBase";
 import { drawEdges, drawNodes, drawPOIs, drawAreas } from "./utils/drawUtils";
@@ -9,10 +9,12 @@ type Props = {
   edges: Edge[];
   pois: POI[];
   areas: Area[];
+  charts: Chart[];
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
   setPois: React.Dispatch<React.SetStateAction<POI[]>>;
   setAreas: React.Dispatch<React.SetStateAction<Area[]>>;
+  setCharts: React.Dispatch<React.SetStateAction<Chart[]>>;
 };
 
 type ModifyMode = "edge" | "poi" | "area" | null;
@@ -22,10 +24,12 @@ export default function CanvasEditor({
   edges,
   pois,
   areas,
+  charts,
   setNodes,
   setEdges,
   setPois,
   setAreas,
+  setCharts,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -37,6 +41,19 @@ export default function CanvasEditor({
   const [draggingNode, setDraggingNode] = useState<Node | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
+
+  const getNextId = (items: { id: string }[], prefix: string): string => {
+    if (items.length === 0) return `${prefix}0`;
+
+    // Extract numbers from IDs (e.g., "N12" -> 12), find max, and add 1
+    const ids = items.map((item) => {
+      const num = parseInt(item.id.replace(prefix, ""));
+      return isNaN(num) ? -1 : num;
+    });
+
+    const maxId = Math.max(...ids);
+    return `${prefix}${maxId + 1}`;
+  };
 
   function handleMouseUp() {
     if (tool !== Tool.MOVE) return;
@@ -298,13 +315,13 @@ export default function CanvasEditor({
         const snapY = n1.y + t * D;
 
         const newNode: Node = {
-          id: `N${nodes.length}`,
+          id: getNextId(nodes, "N"),
           x: snapX,
           y: snapY,
         };
 
         const edge1: Edge = {
-          id: `E${edges.length}`,
+          id: getNextId(nodes, "E"),
           name: clickedEdge.name,
           type: clickedEdge.type,
           from_node: n1.id,
@@ -312,7 +329,7 @@ export default function CanvasEditor({
         };
 
         const edge2: Edge = {
-          id: `E${edges.length + 1}`,
+          id: getNextId(nodes, "E"),
           name: clickedEdge.name,
           type: clickedEdge.type,
           from_node: newNode.id,
@@ -329,7 +346,7 @@ export default function CanvasEditor({
 
       // Normal node creation
       const newNode: Node = {
-        id: `N${nodes.length}`,
+        id: getNextId(nodes, "N"),
         x: pos.x,
         y: pos.y,
       };
@@ -382,7 +399,8 @@ export default function CanvasEditor({
       return;
     }
 
-    if (tool === Tool.EDGE || tool === Tool.RUNWAY) {
+    // Inside handleClick function, update the condition for edges:
+    if (tool === Tool.EDGE || tool === Tool.RUNWAY || tool === Tool.APPROACH) {
       const clicked = findNode(pos);
       if (!clicked) return;
 
@@ -390,29 +408,45 @@ export default function CanvasEditor({
         setSelectedNode(clicked);
       } else {
         if (selectedNode.id === clicked.id) {
-          alert(
-            "Cannot create an edge/runway with the same start and end node.",
-          );
+          alert("Cannot create a segment with the same start and end node.");
           setSelectedNode(null);
           return;
         }
-        const isRunway = tool === Tool.RUNWAY;
 
-        // Prompt user for edge name
-        const defaultName = isRunway ? "01" : "A";
-        const name = prompt(
-          isRunway ? "Enter runway name (e.g. 23)" : "Enter taxiway name",
-          defaultName,
-        );
+        const isRunway = tool === Tool.RUNWAY;
+        const isApproach = tool === Tool.APPROACH;
+
+        // Validation for Approach logic
+        if (isApproach) {
+            const startHasPOI = pois.some(p => p.node_id === selectedNode.id);
+            const endHasPOI = pois.some(p => p.node_id === clicked.id);
+            const endIsRunwayEdge = edges.some(e => e.type === "runway" && (e.from_node === clicked.id || e.to_node === clicked.id));
+
+            if (!startHasPOI) {
+                alert("Approach segments should start at a POI (Fix).");
+                return
+            }
+
+            if (!endHasPOI && !endIsRunwayEdge) {
+                alert("Approach segments should end at a Runway or POI (Fix).");
+                return
+            }
+        }
+
+        // Prompt user for name
+        const defaultName = isRunway ? "09" : (isApproach ? "FIXNAME" : "A");
+        const namePrompt = isRunway ? "Runway name" : (isApproach ? "Waypoint/Fix Name" : "Taxiway name");
+        
+        const name = prompt(`Enter ${namePrompt}`, defaultName);
         if (!name) {
           setSelectedNode(null);
           return;
         }
 
         const newEdge: Edge = {
-          id: `E${edges.length}`,
+          id: getNextId(edges, "E"),
           name: name,
-          type: isRunway ? "runway" : "taxiway",
+          type: isRunway ? "runway" : (isApproach ? "approach" : "taxiway"),
           from_node: selectedNode.id,
           to_node: clicked.id,
         };
@@ -420,7 +454,6 @@ export default function CanvasEditor({
         setEdges((prev) => [...prev, newEdge]);
         setSelectedNode(null);
       }
-
       return;
     }
 
@@ -480,6 +513,16 @@ export default function CanvasEditor({
         </button>
 
         <button
+          onClick={() => setTool(Tool.APPROACH)}
+          style={{
+            backgroundColor: tool === Tool.APPROACH ? "#d4edda" : "white", // Light green background
+            border: tool === Tool.APPROACH ? "2px solid green" : "1px solid #ccc",
+          }}
+        >
+          Approach
+        </button>
+
+        <button
           onClick={() => setTool(Tool.POI)}
           style={{
             backgroundColor: tool === Tool.POI ? "#d0eaff" : "white",
@@ -511,7 +554,7 @@ export default function CanvasEditor({
               }
 
               const newArea: Area = {
-                id: `AR${areas.length}`,
+                id: getNextId(areas, "AR"),
                 type: "apron",
                 name,
                 node_ids: selectedAreaNodes.map((n) => n.id),
@@ -638,13 +681,26 @@ export default function CanvasEditor({
 
       {/* CANVAS                */}
       <CanvasBase
+        charts={charts}
+        setCharts={setCharts}
         draw={(ctx) => {
+          // Note: CanvasBase handles drawing the charts internally
+          // We just draw the vector layers on top here
           drawEdges(ctx, nodes, edges);
           drawNodes(ctx, nodes);
           drawPOIs(ctx, nodes, pois);
           drawAreas(ctx, nodes, areas);
+
+          // HIGHLIGHT SELECTED NODE
+          if (selectedNode) {
+            ctx.beginPath();
+            ctx.arc(selectedNode.x, selectedNode.y, 8, 0, Math.PI * 2);
+            ctx.strokeStyle = tool === Tool.APPROACH ? "green" : "blue";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
         }}
-        onClick={(pos) => handleClick(pos)}
+        onClick={(pos, e) => handleClick(pos, e)}
         onMouseDown={(pos, e) => handleMouseDown(pos, e)}
         onMouseMove={(pos, e) => handleMouseMove(pos, e)}
         onMouseUp={handleMouseUp}
@@ -664,6 +720,7 @@ export default function CanvasEditor({
             setEdges([]);
             setPois([]);
             setAreas([]);
+            setCharts([]);
             setSelectedPOINode(null);
             setSelectedNode(null);
             setSelectedAreaNodes([]);

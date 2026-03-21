@@ -9,7 +9,7 @@ class Node(BaseModel):
 class Edge(BaseModel):
     id: str
     name: str  # "A", "B", "RWY23"
-    type: str  # "taxiway" | "runway"
+    type: str  # "taxiway" | "runway" | "approach"
     from_node: str
     to_node: str
 
@@ -25,9 +25,22 @@ class POI(BaseModel):
     node_id: str
     runway: Optional[str] = None
 
+class Chart(BaseModel):
+    id: str
+    name: str
+    x: float = 0.0
+    y: float = 0.0
+    width: Optional[float] = None
+    height: Optional[float] = None
+    scale: float = 1.0
+    z_index: int = 0
+    # Add this to receive the PNG data from the frontend
+    imageData: Optional[str] = None 
+
 class Airport(BaseModel):
     id: str
     nodes: List[Node]
     edges: List[Edge]
     areas: List[Area]
     pois: List[POI]
+    charts: List[Chart] # Uncommented

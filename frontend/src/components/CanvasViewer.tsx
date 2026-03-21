@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import type { Node, Edge, POI, Area } from "../data/types";
+import type { Node, Edge, POI, Area, Chart } from "../data/types";
 import { loadAllPaths } from "../api";
 import CanvasBase from "./CanvasBase";
 import { drawEdges, drawNodes, drawPOIs, drawAreas } from "./utils/drawUtils";
@@ -9,7 +9,9 @@ type Props = {
   edges: Edge[];
   pois: POI[];
   areas: Area[];
+  charts: Chart[];
   airportId: string;
+  setCharts: React.Dispatch<React.SetStateAction<Chart[]>>;
 };
 
 export default function CanvasViewer({
@@ -17,7 +19,9 @@ export default function CanvasViewer({
   edges,
   pois,
   areas,
+  charts,
   airportId,
+  setCharts
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -209,6 +213,8 @@ export default function CanvasViewer({
 
       {/* CANVAS */}
       <CanvasBase
+        charts={charts}
+        setCharts={setCharts}
         draw={(ctx) => {
           drawEdges(ctx, nodes, edges);
           drawNodes(ctx, nodes);
